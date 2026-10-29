@@ -1,0 +1,9 @@
+# @stofone/dsh-agent-roster 的 Host 行。
+#
+# config 会被整体替换（不会深合并）：覆盖本行时请把需要的字段全部重述一遍。
+# 所有字段都有默认值，留空即可用「项目内 .dsh/agent-rosters/」与「用户级
+# <dshHome>/agent-rosters/」两个目录。
+- insert:
+    - id: agent-roster
+      name: '@stofone/dsh-agent-roster'
+      config: {}

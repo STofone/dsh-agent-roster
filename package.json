@@ -1,0 +1,95 @@
+{
+  "name": "@stofone/dsh-agent-roster",
+  "version": "0.1.0",
+  "description": "多 Agent 团队的静态成员档案定义与校验层：把成员人设、模型与工具边界固化成可校验、可版本化的静态档案，并在 dsh-agent-teams 创建成员时把档案桥接给运行时。",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "lib",
+    "bin",
+    "locale/*.json",
+    "icon.svg",
+    "examples",
+    "README.md",
+    "README.zh.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "dsh-agent-roster": "bin/cli.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-teams",
+    "agent",
+    "roster",
+    "persona",
+    "multi-agent"
+  ],
+  "license": "MIT",
+  "author": {
+    "name": "STofone",
+    "url": "https://github.com/STofone"
+  },
+  "homepage": "https://github.com/STofone/dsh-agent-roster#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/STofone/dsh-agent-roster.git"
+  },
+  "bugs": {
+    "url": "https://github.com/STofone/dsh-agent-roster/issues"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "yaml": "^2.9.1"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "test": "node --test",
+    "smoke": "node scripts/host-smoke.mjs",
+    "validate": "node bin/cli.mjs validate"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": false,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "meta": {
+    "title": "Agent Roster",
+    "description": "静态成员档案：定义、校验并桥接多 Agent 团队成员的人设、模型与工具边界。"
+  }
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Agent Roster">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#1d4ed8"/>
+  <g fill="#ffffff">
+    <rect x="14" y="16" width="24" height="5" rx="2.5"/>
+    <rect x="14" y="27" width="32" height="5" rx="2.5" opacity="0.9"/>
+    <rect x="14" y="38" width="20" height="5" rx="2.5" opacity="0.75"/>
+  </g>
+  <g fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M40 47.5l4.6 4.5L54 42.5"/>
+  </g>
+</svg>

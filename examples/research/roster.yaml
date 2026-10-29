@@ -1,0 +1,42 @@
+# 示例档案：外部调研小组。
+#
+# 与 core-review 刻意不同：这份档案让成员分别用不同模型，并给"复核者"更弱的工具边界。
+kind: dsh-agent-roster/v1
+roster: research
+version: 0.1.0
+title: 外部调研小组
+description: 一手资料收集 + 交叉复核；复核者的结论必须能被另一条独立来源支撑。
+tags:
+  - research
+  - example
+
+defaults:
+  provider: deepseek
+  model: deepseek-v4.1-pro
+  reasoningEffort: medium
+
+members:
+  - name: scout
+    role: 一手资料
+    title: 找原始出处
+    systemPrompt: |
+      你负责找一手资料：官方文档、源码、发布说明、原始数据。二手转述只能用来说明"存在争议"。
+      每条事实必须附可点击链接与日期；找不到就写"没找到"，不要用常识补。
+    tags:
+      - sourcing
+
+  - name: verifier
+    role: 交叉复核
+    title: 独立复现结论
+    systemPrompt: |
+      你只做一件事：拿另一条独立来源验证别人的结论。你有意不共享 scout 的上下文，避免同源偏差。
+      结论分三档：已复现 / 部分一致 / 无法复现。无法复现时必须写清缺哪条关键证据。
+    model: deepseek-v4.1-flash
+    reasoningEffort: high
+    tags:
+      - verification
+    toolScope:
+      allow:
+        - read
+        - grep
+    notes: 刻意用更小的模型做复核，成本低且能暴露"结论依赖模型能力"的问题。
