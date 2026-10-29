@@ -54,6 +54,11 @@ defaults:                    # 团队成员共享的路由默认值
 members:
   - name: reviewer          # kebab-case，团队内唯一
     role: 代码评审
+    description: 只做评审，不碰发布  # 一句话职责，供派活与团队列表用
+    aliases: [code-reviewer]       # 曾用名：改名后核对仍认作同一成员
+    skills: [frontend-skill]       # 声明期望用到的技能（不自动加载）
+    examples:                      # 典型请求，派活时当提示
+      - 帮我审一下这次改动
     systemPrompt: |
       你先找语义错误，再看风格。
     toolPolicy: readonly
@@ -63,6 +68,14 @@ members:
       你核对变更、版本号与回滚方案。
     model: deepseek-v4.1-pro
     reasoningEffort: low
+
+captain:                     # 可选：记录队长（＝创建团队的那个会话）应该是什么样
+  name: lead
+  description: 主会话即队长，负责拆活与验收
+  provider: tsingmicro
+  model: deepseek-v4.1-flash
+  personaPrefix: |
+    派活前先复述目标与验收标准。
 ```
 
 JSON 也可以（`roster.json`）。同一目录下按 `roster.yaml` → `roster.yml` → `roster.json` 顺序探测，**只认一份**；出现第二份会报诊断，绝不静默挑一份。
@@ -98,10 +111,13 @@ npx dsh-agent-roster list
 | `tags` | 否 | ≤16 个，小写 kebab-case |
 | `defaults` | 否 | 成员继承的路由字段 |
 | `members` | 是 | 1 到 32 个 |
+| `captain` | 否 | 队长段：只描述、不创建（见下） |
 
-成员键：`name`、`role`、`systemPrompt`（必填），以及 `provider`、`model`、`reasoningEffort`、`toolPolicy`、`fallback`、`toolScope`、`maxTokens`、`title`、`tags`、`notes`。
+成员键：`name`、`role`、`systemPrompt`（必填），以及 `provider`、`model`、`reasoningEffort`、`toolPolicy`、`fallback`、`toolScope`、`maxTokens`、`title`、`tags`、`notes`、`description`、`aliases`、`skills`、`examples`。
 
 `systemPrompt` 上限 8000 字符。成员省略路由字段时从 `defaults` 继承，继承结果记入 `inherited` 列表，能看清"这个值哪来的"。
+
+机器可读的 JSON Schema 在 [`schema/roster.v1.schema.json`](./schema/roster.v1.schema.json)，供编辑器补全与外部工具校验；权威校验始终是 `lib/validate.js`，两者由 `test/schema.test.js` 对齐。
 
 ### 每个字段到底落在哪
 
@@ -111,9 +127,26 @@ npx dsh-agent-roster list
 |---|---|---|
 | `direct` | `name`、`role`、`systemPrompt`、`provider`、`model`、`reasoningEffort`、`toolPolicy` | 进入 `agent_teams_add_member` 参数并被运行时持久化 |
 | `config` | `fallback` | 运行时无对应参数，需落部署配置 |
-| `declaration` | `toolScope`、`maxTokens`、`title`、`tags`、`notes` | 仅作文档与校验依据，明确标注未生效 |
+| `declaration` | `toolScope`、`maxTokens`、`title`、`tags`、`notes`、`description`、`aliases`、`skills`、`examples` | 仅作文档与校验依据，明确标注未生效 |
 
 `roster_create` 输出 `agent_teams_add_member` 参数（`systemPrompt` → `executionPrompt`、`reasoningEffort` → `reasoning_effort`、`toolPolicy` → `tool_policy`）与逐字段归宿；`roster_verify` 随后把每个字段判为 `applied`、`overridden`、`omitted` 或 `unconfirmed`。
+
+### 声明层字段与队长
+
+这四个声明字段解决的是"档案写着给人看、运行时却不认"的那类信息，各有明确用途：
+
+- `description`：一句话说明这名成员负责什么。CrewAI 的 `backstory`、Claude 的 `description`、OpenAI Agents SDK 的 `handoff_description` 都是这个位置——派活时先看它。
+- `aliases`：曾用名。成员改名后团队状态里仍是旧名，核对时按别名认作同一成员（结果里标 `matchedAs`），不会把一次改名变成"未部署 + 无档案"两条假报警。别名不能与现有成员重名，也不能两名成员共用一个别名。
+- `skills`：期望这名成员用到的技能名，与 DSH 技能目录同名。**声明层**：运行时不会据此加载技能；宿主能列出技能时，`roster_verify` 只回答"声明了但没装"这一件事。
+- `examples`：典型请求，一行一条，派活时当提示参考，永远不会被当作指令执行。
+
+`captain` 段记录队长——它**不是成员**。`dsh-agent-teams` 里队长就是创建团队的那个会话：`team.json` 没有 captain 成员行，也没有任何参数能改写它的模型。所以档案对队长只做三件事：
+
+1. 描述它应该是什么样（`name`、`description`、`systemPrompt`）；
+2. 声明它的路由与人格前缀，并在 `roster_show` 里给出可复制的 profile 片段（`agent-default-model`、`@deepseek-ai/dsh-persona`）；
+3. 校验这些声明是否成对（`provider` 与 `model` 必须同时出现）。
+
+真正生效要改 profile 的 `cordis.patch.yml` 与 agent preset。面板里编辑队长段只是在记录意图——插件不会、也不能替你改会话。
 
 ## 工具
 
@@ -184,7 +217,7 @@ npx dsh-agent-roster list
 
 ```bash
 npm install
-npm test          # node --test，135 个用例
+npm test          # node --test，153 个用例
 npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往返
 node scripts/check-locale.mjs   # client.js 里的静态 t() 键必须两本词典都有
 ```
@@ -195,6 +228,7 @@ lib/              format / parse / validate / registry / bridge / verify / rende
                   config-view / json / http / write / service / teams-state / tools
 client.js         客户端半边：左侧栏图标 + 主面板（档案/团队/体检）+ 设置页小节
 locale/           面板与列表词典（en/zh）
+schema/           roster.v1.schema.json（编辑器补全用，与校验器由测试对齐）
 bin/cli.mjs       validate / list / version，给 CI 用
 scripts/          host-smoke.mjs、client-smoke.mjs、check-locale.mjs（开发用，不随包发布）
 examples/         两座示例档案库
@@ -205,7 +239,7 @@ test/             单测
 
 本机已验证：
 
-- `npm test` —— 135/135 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束）。
+- `npm test` —— 153/153 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束、声明层字段与队长段、schema 与常量对齐）。
 - `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册四个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
 - CLI：`validate --dir examples` 对两座示例库退出码 0。
 - 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目），重启后按链接读取本仓库文件。

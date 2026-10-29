@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/STofone/dsh-agent-roster/blob/main/schema/roster.v1.schema.json",
+  "title": "DSH agent roster document",
+  "description": "一份成员档案：描述一个多 Agent 团队里每个成员是谁、用什么模型、受哪些工具约束，以及队长应该是什么样。校验的权威实现是插件里的 lib/validate.js；本文件供编辑器与外部工具做提示，两者由 test/schema.test.js 对齐。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "roster", "version", "members"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "编辑器用的 schema 地址，插件不读它。"
+    },
+    "kind": {
+      "const": "dsh-agent-roster/v1"
+    },
+    "roster": {
+      "$ref": "#/$defs/id",
+      "description": "档案 id，同时是所在目录名。"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "license": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "maintainers": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "type": "string", "minLength": 1, "maxLength": 120 }
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 16,
+      "items": { "$ref": "#/$defs/tag" }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "成员没写这些字段时继承；只放真正参与桥接的字段。",
+      "properties": {
+        "provider": { "$ref": "#/$defs/provider" },
+        "model": { "$ref": "#/$defs/model" },
+        "reasoningEffort": { "$ref": "#/$defs/effort" },
+        "toolPolicy": { "$ref": "#/$defs/id" },
+        "toolScope": { "$ref": "#/$defs/toolScope" },
+        "fallback": { "$ref": "#/$defs/route" }
+      }
+    },
+    "members": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/member" }
+    },
+    "captain": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "队长就是创建团队的那个会话，不是成员。这里只记录它应该是什么样，并给出落地提示。",
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/id" },
+        "description": { "type": "string", "maxLength": 500 },
+        "systemPrompt": { "type": "string", "maxLength": 8000 },
+        "personaPrefix": { "type": "string", "maxLength": 4000 },
+        "provider": { "$ref": "#/$defs/provider" },
+        "model": { "$ref": "#/$defs/model" },
+        "reasoningEffort": { "$ref": "#/$defs/effort" }
+      },
+      "dependentRequired": {
+        "provider": ["model"],
+        "model": ["provider"]
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}$"
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+    },
+    "skill": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+      "description": "与 DSH 技能目录同名。声明层：运行时不会据此加载技能。"
+    },
+    "provider": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "model": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$"
+    },
+    "effort": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "default"]
+    },
+    "toolName": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "toolPattern": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.:-]{0,126}\\*?$"
+    },
+    "toolScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "声明层：agent-teams 没有对应的建员参数。",
+      "properties": {
+        "allow": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/toolPattern" } },
+        "deny": { "type": "array", "maxItems": 64, "items": { "$ref": "#/$defs/toolPattern" } }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model"],
+      "description": "需落部署配置的备用路由：运行时没有工具参数。",
+      "properties": {
+        "provider": { "$ref": "#/$defs/provider" },
+        "model": { "$ref": "#/$defs/model" }
+      }
+    },
+    "member": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role", "systemPrompt"],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/id",
+          "description": "成员名；改名时把旧名写进 aliases，核对时仍认作同一成员。"
+        },
+        "role": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "systemPrompt": { "type": "string", "minLength": 1, "maxLength": 8000 },
+        "title": { "type": "string", "maxLength": 120 },
+        "description": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "一句话说明这个成员负责什么；供派活与团队列表使用，运行时不强制。"
+        },
+        "provider": { "$ref": "#/$defs/provider" },
+        "model": { "$ref": "#/$defs/model" },
+        "reasoningEffort": { "$ref": "#/$defs/effort" },
+        "toolPolicy": {
+          "$ref": "#/$defs/id",
+          "description": "必须是部署已声明的工具策略 id；插件只能校验形态。"
+        },
+        "aliases": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/id" },
+          "description": "曾用名：核对时旧名仍映射到这名成员。"
+        },
+        "skills": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/skill" },
+          "description": "声明层：期望这个成员用到的技能；插件只核对是否已安装。"
+        },
+        "examples": {
+          "type": "array",
+          "maxItems": 5,
+          "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "description": "典型请求示例，供派活时参考；永远不会被当作指令执行。"
+        },
+        "fallback": { "$ref": "#/$defs/route" },
+        "toolScope": { "$ref": "#/$defs/toolScope" },
+        "maxTokens": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "tags": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/tag" }
+        }
+      }
+    }
+  }
+}

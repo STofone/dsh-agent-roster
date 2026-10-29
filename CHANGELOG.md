@@ -2,6 +2,17 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.4.0] - 2026-10-29
+
+### Added
+
+- 成员声明字段 `description`、`aliases`、`skills`、`examples`：文档与派活用的信息，明确标注为声明层。
+  `aliases` 参与核对匹配，改名后不再出现「未部署 + 无档案」的假报警；`skills` 与宿主技能目录交叉核对。
+- 档案级 `captain` 段：记录队长（＝创建团队的那个会话）应该是什么样，给出可复制的 profile 片段。
+  agent-teams 没有 captain 成员行，档案只声明、不改写会话。
+- `schema/roster.v1.schema.json`：编辑器与外部工具用的 JSON Schema，由 `test/schema.test.js` 与运行时常量对齐。
+- 测试：声明字段校验、别名冲突、队长段、别名核对、技能核对、schema 对齐（共 153 例）。
+
 ## [0.3.0] - 2026-10-29
 
 ### Changed

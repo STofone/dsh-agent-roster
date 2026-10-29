@@ -56,6 +56,11 @@ defaults:                    # team-wide fallback for route fields
 members:
   - name: reviewer          # kebab-case, unique in the team
     role: Code review
+    description: Reviews only, never releases   # one-line responsibility, used for delegation
+    aliases: [code-reviewer]                   # former names: still matched after a rename
+    skills: [frontend-skill]                   # declared skills (never auto-loaded)
+    examples:                                  # typical requests, used as delegation hints
+      - Review this change for semantic bugs
     systemPrompt: |
       You review for semantic bugs first, style second.
     toolPolicy: readonly
@@ -65,6 +70,14 @@ members:
       You check the diff, the version and the rollback plan.
     model: deepseek-v4.1-pro
     reasoningEffort: low
+
+captain:                     # optional: what the captain (the session that creates a team) should be
+  name: lead
+  description: The main session is the captain; it splits work and accepts results
+  provider: tsingmicro
+  model: deepseek-v4.1-flash
+  personaPrefix: |
+    Restate the goal and acceptance criteria before delegating.
 ```
 
 JSON works too (`roster.json`); YAML and JSON are probed in the order `roster.yaml`, `roster.yml`, `roster.json`. Exactly one file per directory — a second one is reported, never silently picked.
@@ -102,10 +115,13 @@ Top level: only these keys are allowed — unknown keys are errors, not warnings
 | `tags` | no | at most 16 tags, each lowercase kebab-case |
 | `defaults` | no | route fields inherited by members |
 | `members` | yes | 1 to 32 entries |
+| `captain` | no | captain block: describes, never creates (see below) |
 
-Member keys: `name`, `role`, `systemPrompt` (all required), plus `provider`, `model`, `reasoningEffort`, `toolPolicy`, `fallback`, `toolScope`, `maxTokens`, `title`, `tags`, `notes`.
+Member keys: `name`, `role`, `systemPrompt` (all required), plus `provider`, `model`, `reasoningEffort`, `toolPolicy`, `fallback`, `toolScope`, `maxTokens`, `title`, `tags`, `notes`, `description`, `aliases`, `skills`, `examples`.
 
 `systemPrompt` is capped at 8000 characters. Members that omit a route field inherit it from `defaults`; the resolved value is recorded in the member's `inherited` list so you can see where it came from.
+
+A machine-readable JSON Schema lives in [`schema/roster.v1.schema.json`](./schema/roster.v1.schema.json) for editor completion and external tools. `lib/validate.js` stays authoritative; `test/schema.test.js` keeps the two aligned.
 
 ### Where each field actually lands
 
@@ -115,9 +131,26 @@ The bridge never pretends a field took effect. Every member field is classified:
 |---|---|---|
 | `direct` | `name`, `role`, `systemPrompt`, `provider`, `model`, `reasoningEffort`, `toolPolicy` | passed to `agent_teams_add_member` and stored by the runtime |
 | `config` | `fallback` | no runtime argument; needs owner-side configuration |
-| `declaration` | `toolScope`, `maxTokens`, `title`, `tags`, `notes` | documentation and validation only — explicitly reported as not applied |
+| `declaration` | `toolScope`, `maxTokens`, `title`, `tags`, `notes`, `description`, `aliases`, `skills`, `examples` | documentation and validation only — explicitly reported as not applied |
 
 `roster_create` emits `agent_teams_add_member` arguments (`systemPrompt` → `executionPrompt`, `reasoningEffort` → `reasoning_effort`, `toolPolicy` → `tool_policy`) and a per-field summary; `roster_verify` then reports each field as `applied`, `overridden`, `omitted` or `unconfirmed`.
+
+### Declared fields and the captain
+
+These four declared fields carry information the runtime does not act on, and each has one job:
+
+- `description` — one line on what the member owns. CrewAI's `backstory`, Claude's `description` and the OpenAI Agents SDK's `handoff_description` occupy this slot; it is what you read when handing out work.
+- `aliases` — former names. After a rename the team state still holds the old name; verification matches by alias (reported as `matchedAs`) instead of raising "not deployed" plus "unmanaged" on every rename. Aliases may not collide with a member name or with each other.
+- `skills` — skill names the member is expected to use, matching the DSH skill catalog. **Declaration only**: nothing is loaded because a roster says so; when the host can list skills, `roster_verify` answers just one question — declared but not installed.
+- `examples` — typical requests, one per line, useful as delegation hints; never executed as instructions.
+
+The `captain` block records the captain, which is **not a member**. In `dsh-agent-teams` the captain is the session that creates the team: `team.json` has no captain member row and no argument can change its model. So a roster only does three things for it:
+
+1. describe what it should be (`name`, `description`, `systemPrompt`);
+2. declare its route and persona prefix, and print a copy-pasteable profile snippet (`agent-default-model`, `@deepseek-ai/dsh-persona`) from `roster_show`;
+3. validate that the declarations pair up (`provider` and `model` come together).
+
+Making it real means editing the profile's `cordis.patch.yml` and the agent preset. Editing the captain block in the panel records intent; the plugin neither can nor will change your session.
 
 ## Tools
 
@@ -188,7 +221,7 @@ An empty library is not an error. A missing one is reported as info, not error. 
 
 ```bash
 npm install
-npm test          # node --test, 135 cases
+npm test          # node --test, 153 cases
 npm run smoke     # registers the tools against a real DSH bundle, asserts lossless output
 node scripts/check-locale.mjs   # static t() keys must exist in both dictionaries
 ```
@@ -201,6 +234,7 @@ lib/              format, parse, validate, registry, bridge, verify, render, lib
                   config-view, json, http, write, service, teams-state, tools
 client.js         client plugin: sidebar entry, main panel (rosters/teams/health), settings section
 locale/           panel + listing dictionaries (en/zh)
+schema/           roster.v1.schema.json (editor completion; kept aligned by tests)
 bin/cli.mjs       validate/list/version for CI
 scripts/          host-smoke.mjs, client-smoke.mjs, check-locale.mjs (dev only, not shipped)
 examples/         two example libraries
@@ -211,7 +245,7 @@ test/             unit tests
 
 Verified on this machine:
 
-- `npm test` — 135/135 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, the four routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest).
+- `npm test` — 153/153 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, the four routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment).
 - `npm run smoke` — `apply()` registers all four tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
 - CLI: `validate --dir examples` returns exit 0 over both example libraries.
 - Installed into a real profile with the plugin manager (`plugin_manager install_bundle` against this directory → `link:` dependency + bundle entry); the profile re-reads the linked files on restart.

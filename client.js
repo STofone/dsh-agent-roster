@@ -221,10 +221,14 @@ window.__ModuleLoader__.load({
         push(2, `- name: ${quote(member.name)}`);
         scalarAt(push, 4, "role", member.role);
         scalarAt(push, 4, "title", member.title);
+        scalarAt(push, 4, "description", member.description);
         scalarAt(push, 4, "provider", member.provider);
         scalarAt(push, 4, "model", member.model);
         scalarAt(push, 4, "reasoningEffort", member.reasoningEffort);
         scalarAt(push, 4, "toolPolicy", member.toolPolicy);
+        listAt(push, 4, "aliases", splitList(member.aliases));
+        listAt(push, 4, "skills", splitList(member.skills));
+        listAt(push, 4, "examples", splitList(member.examples));
         const tools = splitList(member.tools);
         if (tools.length > 0) {
           push(4, "toolScope:");
@@ -240,7 +244,29 @@ window.__ModuleLoader__.load({
         scalarAt(push, 4, "notes", member.notes);
       }
 
+      const captain = draft.captain;
+      if (captain !== null && typeof captain === "object" && String(captain.name ?? "").trim() !== "") {
+        push(0, "captain:");
+        scalarAt(push, 2, "name", captain.name);
+        scalarAt(push, 2, "description", captain.description);
+        scalarAt(push, 2, "provider", captain.provider);
+        scalarAt(push, 2, "model", captain.model);
+        scalarAt(push, 2, "reasoningEffort", captain.reasoningEffort);
+        const persona = String(captain.personaPrefix ?? "").replace(/\r\n/g, "\n").replace(/\s+$/, "");
+        if (persona !== "") {
+          push(2, "personaPrefix: |");
+          for (const line of persona.split("\n")) push(4, line);
+        }
+      }
+
       return `${lines.join("\n")}\n`;
+    }
+
+    /** 一列块状数组：空数组不写，避免产出 `aliases:` 后面什么都没有的残缺 YAML。 */
+    function listAt(push, indent, key, values) {
+      if (!Array.isArray(values) || values.length === 0) return;
+      push(indent, `${key}:`);
+      for (const value of values) push(indent + 2, `- ${quote(value)}`);
     }
 
     function scalarAt(push, indent, key, value) {
@@ -258,8 +284,12 @@ window.__ModuleLoader__.load({
       const members = draft.members.map((member) => {
         const tools = splitList(member.tools);
         const entry = { name: member.name || "" };
-        for (const field of ["role", "title", "provider", "model", "reasoningEffort", "toolPolicy"]) {
+        for (const field of ["role", "title", "description", "provider", "model", "reasoningEffort", "toolPolicy"]) {
           if (member[field]) entry[field] = member[field];
+        }
+        for (const field of ["aliases", "skills", "examples"]) {
+          const values = splitList(member[field]);
+          if (values.length > 0) entry[field] = values;
         }
         if (tools.length > 0) entry.toolScope = { allow: tools };
         entry.systemPrompt = String(member.systemPrompt ?? "");
@@ -276,6 +306,15 @@ window.__ModuleLoader__.load({
         maintainers: splitList(draft.maintainers),
         members,
       };
+      const captain = draft.captain;
+      if (captain !== null && typeof captain === "object" && String(captain.name ?? "").trim() !== "") {
+        const block = { name: captain.name };
+        for (const field of ["description", "provider", "model", "reasoningEffort"]) {
+          if (captain[field]) block[field] = captain[field];
+        }
+        if (String(captain.personaPrefix ?? "").trim() !== "") block.personaPrefix = captain.personaPrefix;
+        document.captain = block;
+      }
       return `${JSON.stringify(document, null, 2)}\n`;
     }
 
@@ -433,6 +472,10 @@ window.__ModuleLoader__.load({
           member.role ? h(Chip, null, member.role) : null,
           member.toolPolicy ? h(Chip, { tone: "policy" }, `${t("member.policy")}: ${member.toolPolicy}`) : null,
         ),
+        member.description ? h("p", { className: "rstr-member-desc" }, member.description) : null,
+        Array.isArray(member.aliases) && member.aliases.length > 0
+          ? h("p", { className: "rstr-muted rstr-small" }, `${t("member.aliases")}: ${member.aliases.join(", ")}`)
+          : null,
         h(
           "div",
           { className: "rstr-member-meta" },
@@ -444,6 +487,13 @@ window.__ModuleLoader__.load({
             : null,
           h("span", { className: "rstr-muted" }, t("team.promptChars", { count: member.systemPromptChars })),
         ),
+        Array.isArray(member.skills) && member.skills.length > 0
+          ? h(
+              "p",
+              { className: "rstr-muted rstr-small" },
+              `${t("member.skills")}: ${member.skills.join(", ")}（${t("member.skillsHint")}）`,
+            )
+          : null,
         Array.isArray(member.inherited) && member.inherited.length > 0
           ? h("p", { className: "rstr-muted rstr-small" }, `inherited: ${member.inherited.join(", ")}`)
           : null,
@@ -617,7 +667,8 @@ window.__ModuleLoader__.load({
         description: "",
         tags: "",
         maintainers: "",
-        members: [{ name: "", role: "", title: "", provider: "", model: "", reasoningEffort: "", toolPolicy: "", tools: "", systemPrompt: "", notes: "" }],
+        members: [{ name: "", role: "", title: "", description: "", provider: "", model: "", reasoningEffort: "", toolPolicy: "", aliases: "", skills: "", examples: "", tools: "", systemPrompt: "", notes: "" }],
+        captain: null,
       };
     }
 
@@ -633,14 +684,29 @@ window.__ModuleLoader__.load({
           name: member.name ?? "",
           role: member.role ?? "",
           title: member.title ?? "",
+          description: member.description ?? "",
           provider: member.provider ?? "",
           model: member.model ?? "",
           reasoningEffort: member.reasoningEffort ?? "",
           toolPolicy: member.toolPolicy ?? "",
+          aliases: (member.aliases ?? []).join(", "),
+          skills: (member.skills ?? []).join(", "),
+          examples: (member.examples ?? []).join("\n"),
           tools: (member.toolScope?.allow ?? []).join(", "),
           systemPrompt: member.systemPrompt ?? "",
           notes: member.notes ?? "",
         })),
+        captain:
+          roster.captain === null || roster.captain === undefined
+            ? null
+            : {
+                name: roster.captain.name ?? "",
+                description: roster.captain.description ?? "",
+                personaPrefix: roster.captain.personaPrefix ?? "",
+                provider: roster.captain.provider ?? "",
+                model: roster.captain.model ?? "",
+                reasoningEffort: roster.captain.reasoningEffort ?? "",
+              },
       };
     }
 
@@ -810,6 +876,10 @@ window.__ModuleLoader__.load({
                 h(Field, { label: t("editor.memberPolicy") }, h(TextInput, { value: member.toolPolicy, mono: true, onChange: (value) => updateMember(index, { toolPolicy: value }) })),
               ),
               h(Field, { label: t("editor.memberScope"), hint: t("editor.memberScopeHint") }, h(TextInput, { value: member.tools, mono: true, onChange: (value) => updateMember(index, { tools: value }) })),
+              h(Field, { label: t("editor.memberDescription") }, h(TextInput, { value: member.description, onChange: (value) => updateMember(index, { description: value }) })),
+              h(Field, { label: t("editor.memberAliases"), hint: t("editor.listHint") }, h(TextInput, { value: member.aliases, mono: true, onChange: (value) => updateMember(index, { aliases: value }) })),
+              h(Field, { label: t("editor.memberSkills"), hint: t("editor.skillsHint") }, h(TextInput, { value: member.skills, mono: true, onChange: (value) => updateMember(index, { skills: value }) })),
+              h(Field, { label: t("editor.memberExamples"), hint: t("editor.examplesHint") }, h(TextArea, { value: member.examples, rows: 3, onChange: (value) => updateMember(index, { examples: value }) })),
               h(Field, { label: t("editor.memberPrompt") }, h(TextArea, { value: member.systemPrompt, rows: 8, onChange: (value) => updateMember(index, { systemPrompt: value }) })),
             ),
           );
@@ -821,6 +891,33 @@ window.__ModuleLoader__.load({
             { type: "button", className: "rstr-btn rstr-btn-dashed", onClick: () => setDraft((current) => ({ ...current, members: [...current.members, blankDraft().members[0]] })) },
             `+ ${t("editor.addMember")}`,
           ),
+        );
+
+        const captain = draft.captain ?? { name: "", description: "", personaPrefix: "", provider: "", model: "", reasoningEffort: "" };
+        const updateCaptain = (patch) => setDraft((current) => ({ ...current, captain: { ...captain, ...patch } }));
+        body.push(h("div", { className: "rstr-section-title rstr-mt" }, t("editor.captain")));
+        body.push(h("p", { className: "rstr-hint" }, t("editor.captainHint")));
+        body.push(
+          h(
+            "div",
+            { className: "rstr-grid" },
+            h(Field, { label: t("editor.captainName"), hint: t("editor.captainNameHint") }, h(TextInput, { value: captain.name, mono: true, onChange: (value) => updateCaptain({ name: value }) })),
+            h(Field, { label: t("editor.captainDescription") }, h(TextInput, { value: captain.description, onChange: (value) => updateCaptain({ description: value }) })),
+            h(Field, { label: t("editor.captainProvider") }, h(TextInput, { value: captain.provider, mono: true, onChange: (value) => updateCaptain({ provider: value }) })),
+            h(Field, { label: t("editor.captainModel") }, h(TextInput, { value: captain.model, mono: true, onChange: (value) => updateCaptain({ model: value }) })),
+            h(
+              Field,
+              { label: t("editor.captainEffort") },
+              h(Select, {
+                value: captain.reasoningEffort,
+                onChange: (value) => updateCaptain({ reasoningEffort: value }),
+                options: [{ value: "", label: "—" }, ...EFFORTS.map((value) => ({ value, label: value }))],
+              }),
+            ),
+          ),
+        );
+        body.push(
+          h(Field, { label: t("editor.captainPersona"), hint: t("editor.captainPersonaHint") }, h(TextArea, { value: captain.personaPrefix, rows: 4, onChange: (value) => updateCaptain({ personaPrefix: value }) })),
         );
       }
 
