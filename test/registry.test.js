@@ -65,13 +65,14 @@ test("支持 YAML 档案", () => {
   }
 });
 
-test("档案库不存在：不是错误，但必须显式说明", () => {
+test("档案库不存在：不是错误，也不该有任何诊断噪音", () => {
   const scan = scanRosterLibrary({ rootDir: nodePath.join(process.cwd(), "definitely-not-here") });
   assert.equal(scan.missing, true);
   assert.equal(scan.rosters.length, 0);
   assert.equal(scan.stats.errors, 0);
-  assert.equal(scan.diagnostics[0].code, "library-missing");
-  assert.equal(scan.diagnostics[0].severity, "info");
+  assert.equal(scan.stats.warnings, 0);
+  assert.equal(scan.stats.infos, 0);
+  assert.deepEqual(scan.diagnostics, []);
 });
 
 test("坏档案被隔离：其余档案照常可用", () => {
@@ -230,8 +231,45 @@ test("超大文件被拒绝而不是读进内存", () => {
   }
 });
 
-test("未配置交叉校验时只发一条档案库级提示，不按档案重复", () => {
-  const library = validLibrary();
+test("没有任何档案时，档案库层零诊断（空库不该有噪音）", () => {
+  const library = makeLibrary({});
+  try {
+    const scan = scanRosterLibrary({ rootDir: library.rootDir });
+    assert.equal(scan.stats.total, 0);
+    assert.deepEqual(scan.diagnostics, []);
+    assert.equal(scan.stats.infos, 0);
+    assert.equal(scan.stats.warnings, 0);
+  } finally {
+    library.cleanup();
+  }
+});
+
+test("档案没人声明 toolPolicy 时，不提交叉校验被跳过", () => {
+  const library = makeLibrary({
+    "plain/roster.json": rosterDocument({
+      roster: "plain",
+      members: [{ name: "alpha", role: "普通成员", systemPrompt: "你只做只读调研。" }],
+    }),
+  });
+  try {
+    const scan = scanRosterLibrary({ rootDir: library.rootDir });
+    assert.equal(scan.diagnostics.some((item) => item.code === "tool-policy-cross-check-skipped"), false);
+  } finally {
+    library.cleanup();
+  }
+});
+
+test("有档案声明 toolPolicy 时，只发一条档案库级提示，不按档案重复", () => {
+  const library = makeLibrary({
+    "guarded/roster.json": rosterDocument({
+      roster: "guarded",
+      members: [{ name: "alpha", role: "受限成员", systemPrompt: "你只做只读调研。", toolPolicy: "readonly" }],
+    }),
+    "guarded-two/roster.json": rosterDocument({
+      roster: "guarded-two",
+      members: [{ name: "beta", role: "受限成员", systemPrompt: "你只做只读调研。", toolPolicy: "readonly" }],
+    }),
+  });
   try {
     const scan = scanRosterLibrary({ rootDir: library.rootDir });
     const skipped = scan.diagnostics.filter((item) => item.code === "tool-policy-cross-check-skipped");
@@ -244,7 +282,12 @@ test("未配置交叉校验时只发一条档案库级提示，不按档案重�
 });
 
 test("配了已知策略列表后不再发“跳过校验”提示", () => {
-  const library = validLibrary();
+  const library = makeLibrary({
+    "guarded/roster.json": rosterDocument({
+      roster: "guarded",
+      members: [{ name: "alpha", role: "受限成员", systemPrompt: "你只做只读调研。", toolPolicy: "readonly" }],
+    }),
+  });
   try {
     const scan = scanRosterLibrary({ rootDir: library.rootDir, knownToolPolicies: ["readonly"] });
     assert.equal(scan.diagnostics.some((item) => item.code === "tool-policy-cross-check-skipped"), false);

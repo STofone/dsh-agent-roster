@@ -118,7 +118,11 @@ describe("buildPanelSnapshot", () => {
     assert.equal(snapshot.teams.available, false);
     assert.equal(snapshot.teams.teams.length, 0);
     assert.ok(snapshot.hints.some((hint) => hint.code === "state-dir-missing"));
-    assert.ok(snapshot.hints.some((hint) => hint.code === "roster-dir-missing"));
+    assert.equal(
+      snapshot.hints.some((hint) => hint.code === "roster-dir-missing" || hint.code === "no-rosters"),
+      false,
+      "空档案库不是问题，不该出提示",
+    );
   });
 
   it("never leaks execution prompts into the payload", () => {

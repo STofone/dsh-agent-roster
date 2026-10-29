@@ -1009,7 +1009,8 @@ window.__ModuleLoader__.load({
           })),
         [snapshot],
       );
-      const defaultRoot = snapshot?.workspaces?.find((workspace) => workspace.rootExists)?.rootDir ?? targets[0]?.rootDir ?? "";
+      const defaultRoot =
+        snapshot?.workspaces?.find((workspace) => workspace.missing !== true)?.rootDir ?? targets[0]?.rootDir ?? "";
 
       async function copyPayload(roster) {
         const payload = {
@@ -1083,7 +1084,8 @@ window.__ModuleLoader__.load({
         [
           ["rosters", t("panel.tabsRosters"), rosters.length],
           ["teams", t("panel.tabsTeams"), teams.length],
-          ["health", t("panel.tabsDiagnostics"), hints.length],
+          // 只有真正要用户处理的问题才计数：info 只是说明，不该在页签上挂数字。
+          ["health", t("panel.tabsDiagnostics"), attention],
         ].map(([value, label, count]) =>
           h(
             "button",

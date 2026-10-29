@@ -79,7 +79,7 @@ test("快照：空目录不是错误，也不会有 error 级诊断", () => {
   }
 });
 
-test("快照：目录根本不存在时给 library-missing 提示（info，不是 error）", () => {
+test("快照：目录根本不存在时零诊断，只标记 missing", () => {
   const missing = nodePath.join(tmpdir(), `dsh-agent-roster-absent-${Date.now()}`);
   const payload = snapshot({
     rosterDirs: [missing],
@@ -87,9 +87,8 @@ test("快照：目录根本不存在时给 library-missing 提示（info，不�
     agentTeamsStateDir: ".agent-teams",
   });
   const report = payload.workspaces[0];
-  const hint = report.diagnostics.find((item) => item.code === "library-missing");
-  assert.ok(hint, "不存在的目录必须被显式提示");
-  assert.equal(hint.severity, "info");
+  assert.equal(report.missing, true);
+  assert.deepEqual(report.diagnostics, [], "空库不该有任何诊断噪音");
   assert.equal(report.stats.errors, 0);
 });
 
