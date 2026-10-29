@@ -245,7 +245,7 @@ An empty library is not an error. A missing one is reported as info, not error. 
 
 ```bash
 npm install
-npm test          # node --test, 162 cases
+npm test          # node --test, 163 cases
 npm run smoke     # registers the tools against a real DSH bundle, asserts lossless output
 node scripts/check-locale.mjs   # static t() keys must exist in both dictionaries
 ```
@@ -269,7 +269,7 @@ test/             unit tests
 
 Verified on this machine:
 
-- `npm test` — 162/162 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, all routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment, remote registry and one-click install).
+- `npm test` — 163/163 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, all routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment, remote registry and one-click install).
 - `npm run smoke` — `apply()` registers all five tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
 - CLI: `validate --dir examples` returns exit 0 over both example libraries.
 - Installed into a real profile with the plugin manager (`plugin_manager install_bundle` against this directory → `link:` dependency + bundle entry); the profile re-reads the linked files on restart.

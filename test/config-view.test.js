@@ -19,10 +19,24 @@ test("视图：普通值原样读出", () => {
     rosterDirs: ["a", "b"],
     knownToolPolicies: ["readonly"],
     agentTeamsStateDir: ".state",
+    indexes: false,
+    region: "china",
   });
   assert.deepEqual(view.rosterDirs, ["a", "b"]);
   assert.deepEqual(view.knownToolPolicies, ["readonly"]);
   assert.equal(view.agentTeamsStateDir, ".state");
+  assert.equal(view.indexes, false);
+  assert.equal(view.region, "china");
+});
+
+test("视图：索引源的三种取值都要原样保留（undefined / 空数组 = 官方源，false = 关掉）", () => {
+  assert.equal(configView({}).indexes, undefined);
+  assert.deepEqual(configView({ indexes: [] }).indexes, []);
+  assert.equal(configView({ indexes: false }).indexes, false);
+  assert.deepEqual(configView({ indexes: ref([{ url: "https://example.test/r.json" }]) }).indexes, [
+    { url: "https://example.test/r.json" },
+  ]);
+  assert.equal(configView({ region: ref(undefined) }).region, "auto");
 });
 
 test("视图：volatile 引用对象取值，而不是当成普通对象", () => {
@@ -46,29 +60,29 @@ test("视图：每次访问都重新取值，设置改了立即生效", () => {
 
 test("视图：缺省、null、空数组都退回默认值", () => {
   const view = configView({});
-  assert.deepEqual(view.rosterDirs, ["rosters"]);
+  assert.deepEqual(view.rosterDirs, [""]);
   assert.deepEqual(view.knownToolPolicies, []);
   assert.equal(view.agentTeamsStateDir, ".agent-teams");
 
   const nulled = configView({ rosterDirs: null, knownToolPolicies: ref(null), agentTeamsStateDir: ref("") });
-  assert.deepEqual(nulled.rosterDirs, ["rosters"]);
+  assert.deepEqual(nulled.rosterDirs, [""]);
   assert.deepEqual(nulled.knownToolPolicies, []);
   assert.equal(nulled.agentTeamsStateDir, ".agent-teams");
 
   const empty = configView({ rosterDirs: [], agentTeamsStateDir: "" });
-  assert.deepEqual(empty.rosterDirs, ["rosters"]);
+  assert.deepEqual(empty.rosterDirs, [""]);
   assert.equal(empty.agentTeamsStateDir, ".agent-teams");
 });
 
 test("视图：类型不对时宁可退回默认值，也不把坏值传给扫描器", () => {
   const view = configView({ rosterDirs: "rosters", knownToolPolicies: "readonly", agentTeamsStateDir: 42 });
-  assert.deepEqual(view.rosterDirs, ["rosters"]);
+  assert.deepEqual(view.rosterDirs, [""]);
   assert.deepEqual(view.knownToolPolicies, []);
   assert.equal(view.agentTeamsStateDir, ".agent-teams");
 });
 
 test("视图：apply 收到 undefined 也不炸", () => {
   const view = configView(undefined);
-  assert.deepEqual(view.rosterDirs, ["rosters"]);
+  assert.deepEqual(view.rosterDirs, [""]);
   assert.equal(view.agentTeamsStateDir, ".agent-teams");
 });

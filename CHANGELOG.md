@@ -2,6 +2,24 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.5.1] - 2026-10-29
+
+### Fixed
+
+- **配置视图漏了两个字段**：`configView` 只转发了 `rosterDirs`/`knownToolPolicies`/`agentTeamsStateDir`，
+  面板与路由读不到 `indexes` 与 `region`——于是设置里关掉远端（`indexes: false`）不生效、
+  `region: china` 也不生效。现在四个字段都转发，`indexes` 的三种取值（`undefined`/空数组 = 官方源、
+  `false` = 关掉远端、数组 = 自定义源）原样保留。
+- **缺省档案库目录退回旧的相对路径**：`rosterDirs` 未配置时曾退回 `["rosters"]`（相对当前工作区），
+  与 0.3.0 起的“留空 = 全局库 `$DSH_HOME/agent-roster`”不一致；一键拉取会把档案写进工作区而不是全局库。
+  现在缺省统一为空串（全局库）。测试 162 → 163。
+
+### Added
+
+- 官方索引 `index/registry.json` 新增三个迁移自上游的 collection：
+  `agent-teams`（wshobson/agents，MIT，4.2 万星）、`metagpt-company`（MetaGPT，MIT）、
+  `openmanus`（OpenManus，MIT）。三份档案在各自仓库的 `rosters/<id>/roster.yaml`，可在面板“档案源”页一键拉取。
+
 ## [0.5.0] - 2026-10-29
 
 ### Added
