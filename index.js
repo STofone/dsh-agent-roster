@@ -1,13 +1,14 @@
 /**
  * @stofone/dsh-agent-roster —— 多 Agent 团队的静态成员档案层。
  *
- * 定位：**定义与校验 + 桥接参数生成**。本插件不运行团队、不调度任务、不替代任何团队运行时，
- * 也不写别人的状态。它做的事只有三件：
+ * 定位：**定义与校验 + 桥接参数生成 + 可管理它的面板**。本插件不运行团队、不调度任务、
+ * 不替代任何团队运行时，也不写别人的状态。它做的事是：
  *
  * 1. 把成员档案（谁、能做什么、用什么模型、受什么工具约束）固化成可校验、可版本化的静态文件；
  * 2. 校验失败时 fail-loud：带文件路径与字段路径报错，不静默降级；
  * 3. 在 dsh-agent-teams 创建成员时，把档案翻译成建员参数，并如实标注每个字段的归宿
- *    （运行时接收 / 仅声明 / 需落部署配置），事后再拿 team.json 的实际值核对。
+ *    （运行时接收 / 仅声明 / 需落部署配置），事后再拿 team.json 的实际值核对；
+ * 4. 给用户一个能看到、能编辑、能新建/导入/删除档案，并能查看/核对团队的面板。
  *
  * @module dsh-agent-roster
  */
@@ -17,7 +18,12 @@ import z from "@deepseek-ai/schemastery";
 
 import { configView } from "./lib/config-view.js";
 import { collectLibrary } from "./lib/library.js";
+import { parseDocumentText } from "./lib/parse.js";
+import { validateRoster } from "./lib/validate.js";
+import { sendError, sendJson, createAuthGate, readJsonBody, requireMethod } from "./lib/http.js";
+import { buildPanelSnapshot, resolveRoots } from "./lib/service.js";
 import { registerRosterTools } from "./lib/tools.js";
+import { deleteRosterDocument, readRosterDocument, writeRosterDocument } from "./lib/write.js";
 
 const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8"));
 
@@ -30,8 +36,8 @@ export const inject = ["tools"];
 /**
  * 插件配置。
  *
- * 三项都是 plain value 且声明为 volatile：在设置页改完立即生效，不需要重启宿主——
- * 这几个值只是"去哪读文件"，没有需要重建的生命周期资源。
+ * 全部声明为 volatile：在设置页改完立即生效，不需要重启宿主——
+ * 这些值只是"去哪读文件、界面说什么语言"，没有需要重建的生命周期资源。
  */
 export const Config = z.object({
   rosterDirs: z
@@ -49,6 +55,11 @@ export const Config = z.object({
     .default(".agent-teams")
     .description("dsh-agent-teams 的状态目录（只读，用于核对成员实际字段）。相对路径以工作区为基准。")
     .volatile(),
+  language: z
+    .union([z.const("auto"), z.const("zh"), z.const("en")])
+    .default("auto")
+    .description("面板与设置项的语言：auto 跟随 DSH 当前语言，zh/en 固定中文或英文。")
+    .volatile(),
 });
 
 /**
@@ -65,26 +76,128 @@ export function apply(ctx, config) {
   registerRosterTools(ctx, settings, { version: pkg.version });
   ctx.logger?.info?.(`dsh-agent-roster ${pkg.version}: registered 4 tools`);
 
-  // 只读查询路由：给客户端插件面板用。没有 webServer 也不影响工具可用性。
-  ctx.inject(["webServer"], (webCtx) =>
-    webCtx.effect(
-      () =>
-        webCtx.webServer.register({
-          kind: "exact",
-          path: "/plugins/dsh-agent-roster/library",
-          handler: async (req, res) => {
-            const payload = collectLibrary(ctx, settings, { name: pkg.name, version: pkg.version });
-            res.writeHead(200, {
-              "content-type": "application/json; charset=utf-8",
-              "cache-control": "no-store",
-            });
-            res.end(JSON.stringify(payload));
-          },
-        }),
-      "dsh-agent-roster: library route",
-    ),
-  );
+  // 面板路由：读快照 / 读单份档案原文 / 保存 / 删除 / 导入。
+  // 没有 webServer 也不影响工具可用性。
+  ctx.inject(["webServer", "connection"], (webCtx) => {
+    const guard = createAuthGate(webCtx);
+    const register = (path, handler, label) =>
+      webCtx.effect(() => webCtx.webServer.register({ kind: "exact", path, handler }), `dsh-agent-roster: ${label}`);
+
+    register(
+      "/plugins/dsh-agent-roster/library",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "GET")) return;
+        sendJson(res, 200, buildPanelSnapshot(ctx, settings, { name: pkg.name, version: pkg.version }));
+      },
+      "library route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/locale",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "GET")) return;
+        const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+        const lang = query.get("lang") === "zh" ? "zh" : "en";
+        try {
+          const text = readFileSync(new URL(`./locale/${lang}.json`, import.meta.url), "utf8");
+          res.writeHead(200, {
+            "content-type": "application/json; charset=utf-8",
+            "cache-control": "no-store",
+          });
+          res.end(text);
+        } catch {
+          sendError(res, 500, "locale-unavailable");
+        }
+      },
+      "locale route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/document",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "GET")) return;
+        const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+        const result = readRosterDocument({
+          roots: resolveRoots(ctx, settings),
+          rootDir: query.get("rootDir") ?? "",
+          id: query.get("id") ?? "",
+        });
+        if (!result.ok) {
+          sendError(res, result.code === "not-found" ? 404 : 400, result.code);
+          return;
+        }
+        // 编辑表单需要人设原文：解析一份给编辑器用，解析失败也不挡"看源码"这条路。
+        const parsed = parseDocumentText(result.text, { file: result.file, format: result.format });
+        const validated = parsed.ok ? validateRoster(parsed.value, { file: result.file }) : null;
+        sendJson(res, 200, {
+          ok: true,
+          file: result.file,
+          format: result.format,
+          text: result.text,
+          roster: validated?.ok ? validated.roster : null,
+        });
+      },
+      "document route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/rosters",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "POST")) return;
+        const body = await readJsonBody(req);
+        if (!body.ok) {
+          sendError(res, body.status, body.code);
+          return;
+        }
+        const input = body.value !== null && typeof body.value === "object" ? body.value : {};
+        const roots = resolveRoots(ctx, settings);
+
+        if (input.action === "delete") {
+          const result = deleteRosterDocument({ roots, rootDir: input.rootDir, id: input.id });
+          if (!result.ok) {
+            sendError(res, result.code === "not-found" ? 404 : 400, result.code);
+            return;
+          }
+          sendJson(res, 200, { ok: true, removed: result.removed });
+          return;
+        }
+
+        if (input.action !== "save" && input.action !== "import") {
+          sendError(res, 400, "unknown-action");
+          return;
+        }
+
+        const result = writeRosterDocument({
+          roots,
+          rootDir: input.rootDir,
+          text: input.text,
+          format: input.format,
+          // import 语义上就是"往库里放一份"，默认允许覆盖同名档案；save 必须由用户确认。
+          overwrite: input.action === "import" ? input.overwrite !== false : input.overwrite === true,
+          knownToolPolicies: settings.knownToolPolicies,
+        });
+        if (!result.ok) {
+          const status =
+            result.code === "exists" || result.code === "format-conflict" ? 409 : result.code === "unknown-root" ? 403 : 422;
+          sendJson(res, status, {
+            ok: false,
+            error: { code: result.code },
+            existing: result.existing ?? null,
+            diagnostics: result.diagnostics ?? [],
+          });
+          return;
+        }
+        sendJson(res, 200, result);
+      },
+      "rosters route",
+    );
+  });
 }
 
-// 面板快照逻辑在 lib/library.js：纯数据投影，可脱离宿主单测。
+// 面板快照逻辑在 lib/library.js 与 lib/service.js：纯数据投影，可脱离宿主单测。
 export { collectLibrary, markDuplicateIds, serializeRoster } from "./lib/library.js";
+export { buildPanelSnapshot } from "./lib/service.js";

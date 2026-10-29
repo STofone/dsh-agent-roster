@@ -1,6 +1,205 @@
 {
   "meta": {
     "title": "Agent Roster",
-    "description": "Static member rosters: define, validate, and bridge personas, models, and tool boundaries for multi-agent teams."
+    "description": "Static member rosters for multi-agent teams: define, validate, edit and inspect them in one panel."
+  },
+  "settings": {
+    "nav": "Agent Roster",
+    "language": "Language",
+    "languageHint": "The panel follows the DSH language by default; pick a language to pin it.",
+    "languageAuto": "Follow DSH",
+    "languageZh": "中文",
+    "languageEn": "English",
+    "rosterDirs": "Roster directories",
+    "rosterDirsHint": "Relative to each workspace. The first one is what the tools read by default.",
+    "stateDir": "Team state directory",
+    "stateDirHint": "Read-only: used to compare roster values with what the runtime actually created.",
+    "policies": "Known tool policies",
+    "policiesNone": "Not configured — policy ids in rosters stay declarations only.",
+    "policiesCount": "{count} declared",
+    "version": "Version",
+    "openPanel": "Open panel"
+  },
+  "panel": {
+    "title": "Agent Roster",
+    "subtitle": "{rosters} rosters · {members} members · {teams} teams",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "tabsRosters": "Rosters",
+    "tabsTeams": "Teams",
+    "tabsDiagnostics": "Health",
+    "search": "Search",
+    "searchPlaceholder": "Filter by id, title, member or tag",
+    "create": "New roster",
+    "import": "Import",
+    "export": "Export",
+    "emptyTitle": "No rosters yet",
+    "emptyBody": "A roster is a plain YAML or JSON file under a roster directory. Create one here, or drop a file into the directory yourself.",
+    "emptyCta": "Create the first roster",
+    "noMatch": "Nothing matches that filter.",
+    "loading": "Reading rosters…",
+    "errorTitle": "Could not read the rosters",
+    "retry": "Try again",
+    "bannerOne": "1 thing needs attention",
+    "bannerMany": "{count} things need attention",
+    "bannerCta": "Open health",
+    "workspaceFallback": "No workspace is registered yet; reading the process directory instead."
+  },
+  "roster": {
+    "members": "{count} members",
+    "oneMember": "1 member",
+    "version": "v{version}",
+    "file": "File",
+    "deployed": "In {teams}",
+    "notDeployed": "Not in any team yet",
+    "drifted": "{count} drifted",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "delete": "Delete",
+    "copyCreate": "Copy team payload",
+    "copied": "Copied to the clipboard",
+    "copyFailed": "The clipboard is unavailable; select the text instead.",
+    "noMembers": "This roster has no members.",
+    "diagnostics": "{count} findings",
+    "showMembers": "Show members",
+    "hideMembers": "Hide members"
+  },
+  "member": {
+    "prompt": "Prompt",
+    "tools": "Tools",
+    "role": "Role",
+    "model": "Model",
+    "effort": "Effort",
+    "policy": "Tool policy",
+    "fallback": "Fallback"
+  },
+  "team": {
+    "emptyTitle": "No teams yet",
+    "emptyBody": "Teams are created and scheduled by dsh-agent-teams. This panel only reads their state so you can tell whether a roster really landed.",
+    "emptyCta": "Copy a team payload from a roster",
+    "phaseStaged": "Staged",
+    "phaseRunning": "Running",
+    "halted": "Halted",
+    "escalated": "Escalated",
+    "members": "Members",
+    "tasks": "{total} tasks · {completed} done · {failed} failed · {active} active",
+    "file": "State file",
+    "managed": "From {roster}",
+    "unmanaged": "Not from a roster",
+    "faithful": "Matches the roster",
+    "drift": "Differs from the roster",
+    "promptChars": "{count} prompt characters",
+    "driftDetail": "{field}: roster {wanted}, runtime {actual}"
+  },
+  "editor": {
+    "createTitle": "New roster",
+    "editTitle": "Edit {id}",
+    "id": "Id",
+    "idHint": "Lowercase letters, digits, dot, dash or underscore. It is also the directory name.",
+    "titleField": "Title",
+    "titleHint": "Shown in the panel; free text.",
+    "version": "Version",
+    "description": "Description",
+    "tags": "Tags",
+    "tagsHint": "Comma separated.",
+    "members": "Members",
+    "addMember": "Add member",
+    "removeMember": "Remove",
+    "memberName": "Name",
+    "memberRole": "Role",
+    "memberTitle": "Title",
+    "memberModel": "Model",
+    "memberProvider": "Provider",
+    "memberEffort": "Effort",
+    "memberPolicy": "Tool policy",
+    "memberScope": "Allowed tools",
+    "memberScopeHint": "Comma separated tool names; empty means inherit.",
+    "memberPrompt": "System prompt",
+    "memberTags": "Tags",
+    "source": "Source",
+    "form": "Form",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "overwriteTitle": "Overwrite the existing roster?",
+    "overwriteBody": "{file} already exists. Saving replaces it and keeps a .bak copy next to it.",
+    "overwriteConfirm": "Overwrite",
+    "failedTitle": "The roster was not saved",
+    "emptyId": "An id is required.",
+    "emptyTitle": "A title is required.",
+    "emptyMembers": "A roster needs at least one member.",
+    "emptyMemberName": "Every member needs a name.",
+    "emptyMemberPrompt": "Every member needs a system prompt.",
+    "sourceHint": "Edit the file as-is. The host validates it before writing; nothing is written when validation fails."
+  },
+  "delete": {
+    "title": "Delete {id}?",
+    "body": "This removes {file} from the roster directory. Teams that already used it keep their members; the roster just stops describing them.",
+    "confirm": "Delete",
+    "cancel": "Cancel"
+  },
+  "importDialog": {
+    "title": "Import a roster",
+    "hint": "Paste a roster document. The host validates it and writes it into the selected directory.",
+    "placeholder": "kind: dsh-agent-roster/v1\\nroster: my-team\\nversion: 1.0.0\\n…",
+    "submit": "Import",
+    "target": "Into"
+  },
+  "import": {
+    "done": "Imported {file}",
+    "exists": "{file} already exists."
+  },
+  "diagnostics": {
+    "title": "Health",
+    "intro": "Everything the plugin can check about its own configuration, the rosters, and the teams they describe.",
+    "empty": "Nothing to report: configuration, rosters and teams are consistent.",
+    "severityError": "Error",
+    "severityWarn": "Warning",
+    "severityInfo": "Note",
+    "file": "File",
+    "location": "{file}:{line}"
+  },
+  "hint": {
+    "workspace-fallback": {
+      "title": "No workspace registered",
+      "body": "DSH has not registered a workspace for this session, so roster directories were resolved against the process directory. Open a workspace so the panel reads the right files."
+    },
+    "roster-dir-missing": {
+      "title": "Roster directory missing",
+      "body": "{dirSpec} does not exist under {rootDir}. Create the directory, or change roster directories in the plugin settings."
+    },
+    "roster-dir-empty": {
+      "title": "Roster directory is empty",
+      "body": "{rootDir} exists but holds no roster. Add a folder with a roster.yaml inside, or create one here."
+    },
+    "no-rosters": {
+      "title": "No rosters anywhere",
+      "body": "Every configured roster directory is empty. Tools will report zero rosters until one exists."
+    },
+    "tool-policies-unset": {
+      "title": "Tool policies are not verified",
+      "body": "Rosters name tool policies but the plugin does not know which ids your deployment declares. Fill known tool policies in the plugin settings to catch typos."
+    },
+    "teams-none": {
+      "title": "No teams yet",
+      "body": "The team state directory {stateDir} holds no team. Rosters can still be inspected; deployment status stays unknown."
+    },
+    "state-dir-missing": {
+      "title": "Team state directory missing",
+      "body": "{stateDir} does not exist yet, so no team can be compared with a roster. This is normal before the first team is created."
+    },
+    "duplicate-roster-id": {
+      "title": "Duplicate roster ids",
+      "body": "{count} roster id appears in more than one directory. Tools resolve the first match only; rename one of them."
+    },
+    "roster-errors": {
+      "title": "Rosters with errors",
+      "body": "{count} error findings across the library. Those rosters cannot be used as team member sources."
+    }
+  },
+  "misc": {
+    "copied": "Copied",
+    "yes": "Yes",
+    "no": "No"
   }
 }

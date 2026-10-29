@@ -65,7 +65,7 @@ test("清单：图标是合法 SVG 且没大得离谱", () => {
   assert.ok(statSync(file).size < 64 * 1024, "icon 体积应远小于 256KiB 上限");
 });
 
-test("客户端半边：能被模块表加载，且挂的是左侧全局栏槽位", () => {
+test("客户端半边：能被模块表加载，面板在左栏、语言与配置摘要在设置页", () => {
   const source = readFileSync(nodePath.join(root, "client.js"), "utf8");
   assert.match(source, /window\.__ModuleLoader__\.load\(/, "必须走模块表加载");
   assert.match(source, /id: "@stofone\/dsh-agent-roster"/, "模块 id 必须是包名");
@@ -73,8 +73,12 @@ test("客户端半边：能被模块表加载，且挂的是左侧全局栏槽�
   assert.match(source, /require\("react"\)/, "必须从宿主模块表拿 React");
   assert.match(source, /"main"/, "必须贡献主面板内容槽");
   assert.match(source, /"sidebar\.panellist"/, "必须在左侧全局栏占一行图标");
-  assert.doesNotMatch(source, /settings\.section/, "面板不再挂在设置页里");
+  // 设置页只留语言与配置摘要：档案与团队管理属于整页面板，不塞进设置页。
+  assert.match(source, /"settings\.section"/, "语言与配置摘要需要挂在设置页");
+  assert.match(source, /inject: \["slots"\]/, "必须声明 slots 依赖，配置表单走 ctx.get 可选读取");
   assert.match(source, /\/plugins\/dsh-agent-roster\/library/, "面板必须读 Host 的只读路由");
+  assert.match(source, /\/plugins\/dsh-agent-roster\/rosters/, "写操作必须走 Host 的写路由");
+  assert.match(source, /\/plugins\/dsh-agent-roster\/locale/, "词典必须从 Host 路由取");
   // 纯语法检查：编译通过即可，不执行（执行需要浏览器模块表）。
   assert.doesNotThrow(() => new Function(source), "client.js 必须语法合法");
 });
@@ -87,6 +91,8 @@ test("Host 半边：源码导出 Cordis 插件约定字段", () => {
   assert.match(source, /export const inject = \["tools"\]/, "必须声明 tools 依赖");
   assert.match(source, /export const Config/, "必须导出 Config 供设置页渲染");
   assert.match(source, /export function apply\(ctx, config\)/, "必须导出 apply(ctx, config)");
-  assert.match(source, /webServer/, "Host 半边必须挂只读路由给面板用");
+  assert.match(source, /webServer/, "Host 半边必须挂路由给面板用");
   assert.match(source, /\/plugins\/dsh-agent-roster\/library/, "路由路径必须与 client.js 一致");
+  assert.match(source, /\/plugins\/dsh-agent-roster\/rosters/, "写路由必须与 client.js 一致");
+  assert.match(source, /connection/, "写路由必须过宿主 connection 围栏（同源校验）");
 });

@@ -1,6 +1,205 @@
 {
   "meta": {
-    "title": "Agent Roster",
-    "description": "静态成员档案：定义、校验并桥接多 Agent 团队成员的人设、模型与工具边界。"
+    "title": "Agent 档案",
+    "description": "多 Agent 团队的静态成员档案：在一个面板里定义、校验、编辑与核对。"
+  },
+  "settings": {
+    "nav": "Agent 档案",
+    "language": "语言",
+    "languageHint": "面板默认跟随 DSH 的语言设置；选一个语言即可固定下来。",
+    "languageAuto": "跟随 DSH",
+    "languageZh": "中文",
+    "languageEn": "English",
+    "rosterDirs": "档案库目录",
+    "rosterDirsHint": "相对每个工作区；第一项是工具默认读取的档案库。",
+    "stateDir": "团队状态目录",
+    "stateDirHint": "只读：用于把档案里的值与运行时真正建出来的成员对照。",
+    "policies": "已声明的工具策略",
+    "policiesNone": "未配置——档案里写的策略 id 只是声明，运行时不生效。",
+    "policiesCount": "已声明 {count} 个",
+    "version": "版本",
+    "openPanel": "打开面板"
+  },
+  "panel": {
+    "title": "Agent 档案",
+    "subtitle": "{rosters} 份档案 · {members} 名成员 · {teams} 个团队",
+    "refresh": "刷新",
+    "refreshing": "正在刷新…",
+    "tabsRosters": "档案",
+    "tabsTeams": "团队",
+    "tabsDiagnostics": "体检",
+    "search": "搜索",
+    "searchPlaceholder": "按 id、标题、成员或标签过滤",
+    "create": "新建档案",
+    "import": "导入",
+    "export": "导出",
+    "emptyTitle": "还没有档案",
+    "emptyBody": "一份档案就是档案库目录下的一个 YAML 或 JSON 文件。可以在这里新建，也可以自己把文件放进目录。",
+    "emptyCta": "创建第一份档案",
+    "noMatch": "没有匹配的档案。",
+    "loading": "正在读取档案…",
+    "errorTitle": "读取档案失败",
+    "retry": "重试",
+    "bannerOne": "有 1 项待处理",
+    "bannerMany": "有 {count} 项待处理",
+    "bannerCta": "查看体检",
+    "workspaceFallback": "还没有注册工作区，暂时按进程所在目录读取。"
+  },
+  "roster": {
+    "members": "{count} 名成员",
+    "oneMember": "1 名成员",
+    "version": "v{version}",
+    "file": "文件",
+    "deployed": "已在 {teams}",
+    "notDeployed": "还没进任何团队",
+    "drifted": "{count} 处不一致",
+    "edit": "编辑",
+    "duplicate": "复制一份",
+    "delete": "删除",
+    "copyCreate": "复制建团队载荷",
+    "copied": "已复制到剪贴板",
+    "copyFailed": "剪贴板不可用，请手动选择文本复制。",
+    "noMembers": "这份档案没有成员。",
+    "diagnostics": "{count} 条发现",
+    "showMembers": "展开成员",
+    "hideMembers": "收起成员"
+  },
+  "member": {
+    "prompt": "人设",
+    "tools": "工具",
+    "role": "角色",
+    "model": "模型",
+    "effort": "思考档位",
+    "policy": "工具策略",
+    "fallback": "备用模型"
+  },
+  "team": {
+    "emptyTitle": "还没有团队",
+    "emptyBody": "团队由 dsh-agent-teams 创建与调度。这里只读它的状态，用来判断档案到底有没有真正建进运行时。",
+    "emptyCta": "从档案复制建团队载荷",
+    "phaseStaged": "待批准",
+    "phaseRunning": "运行中",
+    "halted": "已停止",
+    "escalated": "已升级",
+    "members": "成员",
+    "tasks": "{total} 个任务 · 完成 {completed} · 失败 {failed} · 进行中 {active}",
+    "file": "状态文件",
+    "managed": "来自 {roster}",
+    "unmanaged": "不来自任何档案",
+    "faithful": "与档案一致",
+    "drift": "与档案不一致",
+    "promptChars": "{count} 字人设",
+    "driftDetail": "{field}：档案 {wanted}，运行时 {actual}"
+  },
+  "editor": {
+    "createTitle": "新建档案",
+    "editTitle": "编辑 {id}",
+    "id": "Id",
+    "idHint": "小写字母、数字、点、短横线或下划线；它同时是目录名。",
+    "titleField": "标题",
+    "titleHint": "面板里显示的名字，可自由填写。",
+    "version": "版本",
+    "description": "描述",
+    "tags": "标签",
+    "tagsHint": "用逗号分隔。",
+    "members": "成员",
+    "addMember": "添加成员",
+    "removeMember": "移除",
+    "memberName": "名字",
+    "memberRole": "角色",
+    "memberTitle": "头衔",
+    "memberModel": "模型",
+    "memberProvider": "提供方",
+    "memberEffort": "思考档位",
+    "memberPolicy": "工具策略",
+    "memberScope": "可用工具",
+    "memberScopeHint": "用逗号分隔工具名；留空表示继承。",
+    "memberPrompt": "人设（system prompt）",
+    "memberTags": "标签",
+    "source": "源码",
+    "form": "表单",
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "正在保存…",
+    "overwriteTitle": "覆盖已有档案？",
+    "overwriteBody": "{file} 已存在。保存会替换它，并在旁边保留一份 .bak 备份。",
+    "overwriteConfirm": "覆盖",
+    "failedTitle": "档案没有保存",
+    "emptyId": "必须填写 id。",
+    "emptyTitle": "必须填写标题。",
+    "emptyMembers": "至少需要一个成员。",
+    "emptyMemberName": "每个成员都要有名字。",
+    "emptyMemberPrompt": "每个成员都要有人设。",
+    "sourceHint": "直接编辑文件原文。宿主会在写入前校验；校验不通过时一个字节都不会落盘。"
+  },
+  "delete": {
+    "title": "删除 {id}？",
+    "body": "这会从档案库里删除 {file}。已经用它建过的团队不受影响，只是不再有档案描述这些成员。",
+    "confirm": "删除",
+    "cancel": "取消"
+  },
+  "importDialog": {
+    "title": "导入档案",
+    "hint": "粘贴一份档案原文。宿主会先校验，再写进选中的目录。",
+    "placeholder": "kind: dsh-agent-roster/v1\nroster: my-team\nversion: 1.0.0\n…",
+    "submit": "导入",
+    "target": "写入"
+  },
+  "import": {
+    "done": "已导入 {file}",
+    "exists": "{file} 已存在。"
+  },
+  "diagnostics": {
+    "title": "体检",
+    "intro": "插件能自查的全部内容：自己的配置、档案库，以及档案所描述的团队。",
+    "empty": "没有问题：配置、档案与团队都是一致的。",
+    "severityError": "错误",
+    "severityWarn": "警告",
+    "severityInfo": "提示",
+    "file": "文件",
+    "location": "{file}:{line}"
+  },
+  "hint": {
+    "workspace-fallback": {
+      "title": "没有注册工作区",
+      "body": "DSH 还没为这次会话注册工作区，档案库目录按进程所在目录解析。打开一个工作区后，面板才能读到正确的文件。"
+    },
+    "roster-dir-missing": {
+      "title": "档案库目录不存在",
+      "body": "{dirSpec} 在 {rootDir} 下不存在。可以建这个目录，或在插件设置里改档案库目录。"
+    },
+    "roster-dir-empty": {
+      "title": "档案库目录是空的",
+      "body": "{rootDir} 存在但没有任何档案。放一个含 roster.yaml 的子目录进去，或者在这里新建一份。"
+    },
+    "no-rosters": {
+      "title": "一份档案都没有",
+      "body": "所有配置的档案库目录都是空的。在有一份档案之前，工具会如实报告 0 份档案。"
+    },
+    "tool-policies-unset": {
+      "title": "工具策略未经交叉校验",
+      "body": "档案里写了工具策略，但插件不知道你的部署声明了哪些 id。在插件设置里填上已声明的策略，就能发现写错的 id。"
+    },
+    "teams-none": {
+      "title": "还没有团队",
+      "body": "团队状态目录 {stateDir} 里没有团队。档案仍然可读，只是“有没有真正部署”无从判断。"
+    },
+    "state-dir-missing": {
+      "title": "团队状态目录不存在",
+      "body": "{stateDir} 还不存在，因此没有团队能与档案对照。在第一个团队创建之前，这是正常现象。"
+    },
+    "duplicate-roster-id": {
+      "title": "档案 id 重复",
+      "body": "有 {count} 个档案 id 同时出现在多个目录里。工具只认第一个匹配，请把其中一个改名。"
+    },
+    "roster-errors": {
+      "title": "有档案带错误",
+      "body": "全库共 {count} 条错误。带错误的档案不能作为建团队成员的来源。"
+    }
+  },
+  "misc": {
+    "copied": "已复制",
+    "yes": "是",
+    "no": "否"
   }
 }

@@ -2,7 +2,35 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.2.0] - 2026-10-29
+
+### Added
+
+- 面板从「只看」变成「能管」：三个页签（档案 / 团队 / 体检）。档案页支持新建、编辑、复制、
+  删除、导入、导出，编辑器有表单与源码两种模式，覆盖前留 `.bak`；团队页只读状态目录，列出每个
+  团队的成员、模型路由、是否与档案一致，以及团队任务；体检页集中回答「配置有没有指错」。
+- 写路由 `POST /plugins/dsh-agent-roster/rosters`：同源（`connection` 围栏）、`application/json`
+  校验、请求体上限、档案库根目录白名单；`create` / `update` / `delete` / `import` / `export`
+  五个动作，宿主侧校验失败原样返回诊断，客户端不直接写文件。
+- 只读路由 `GET /plugins/dsh-agent-roster/document`：单份档案原文 + 解析结果，供编辑器源码模式。
+- 只读路由 `GET /plugins/dsh-agent-roster/locale`：面板词典（`en` / `zh`）。
+- 中英双语：面板与宿主文本都走词典（`locale/*.json`），设置页新增「语言」小节
+  （`auto` / `zh` / `en`），默认跟随 DSH；语言变化时面板实时重渲染。
+- 设置页 `settings.section` 小节：语言选择 + 只读配置摘要（目录、状态目录、已声明策略数）。
+- 面板顶部一条「需要处理的事」徽标，配置类提示集中在体检页，不再把噪声堆到首屏。
+- `scripts/check-locale.mjs`：静态 `t()` 键必须两本词典都存在，避免界面漏词。
+- 面板快照扩展：`teams`（团队与成员核对）、`hints`（配置体检）、`counts`、`deployments`。
+- `lib/http.js`、`lib/write.js`、`lib/service.js`、`lib/teams-state.js`：路由工具、写入计划与
+  执行、面板快照投影、状态目录只读解析。
+- 单测 111 个用例（新增写入计划/执行、快照与提示、路由契约）。
+
+### Changed
+
+- 面板改为整页布局（`main` 键控槽 + `sidebar.panellist`），设置页只保留语言与配置摘要。
+- `package.json` `dsh.client.inject` 增加 `@deepseek-ai/dsh-client-ui-settings`。
+- 版本 0.1.0 → 0.2.0。
+
+## [0.1.0]
 
 ### Added
 
@@ -38,4 +66,5 @@
 - 工具返回值含 `undefined` 键，运行时按 `value is not lossless JSON` 整次拒绝；缺失值统一写 `null`，
   且所有返回值先过 `lib/json.js#lossless`。
 
-[Unreleased]: https://github.com/STofone/dsh-agent-roster/commits/main
+[Unreleased]: https://github.com/STofone/dsh-agent-roster/compare/v0.2.0...main
+[0.2.0]: https://github.com/STofone/dsh-agent-roster/releases/tag/v0.2.0

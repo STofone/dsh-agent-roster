@@ -126,11 +126,28 @@ npx dsh-agent-roster list --dir rosters
 
 ## 左侧栏面板
 
-客户端插件在左侧全局栏新增一行 **Agent Roster** 图标（`sidebar.panellist` 列表槽），并在 `main` 槽用同一个面板 id 注册整页内容；点图标即在主区域打开，宽度与对话页一致。内容只读拉取 `/plugins/dsh-agent-roster/library`（`no-store`）：
+客户端插件在左侧全局栏新增一行 **Agent Roster** 图标（`sidebar.panellist` 列表槽），并在 `main` 槽用同一个面板 id 注册整页内容；点图标即在主区域打开，宽度与对话页一致。面板分三个页签，不只是看：
 
-- 档案卡片：id、版本、成员数、标签、该文件的诊断数；
-- 展开后是成员表：姓名、角色、provider/model、effort、工具策略、继承字段、人设长度；
-- 每座档案库标注它读取的目录，取不到工作区注册表时如实标注「退回进程工作目录」。
+| 页签 | 能做什么 |
+|---|---|
+| 档案 | 浏览每个工作区 × 每座档案库，展开成员；**新建 / 编辑 / 复制 / 删除 / 导入 / 导出**档案。编辑器有表单与源码两种模式（源码就是文件原文）；写之前由宿主校验，覆盖已有文件会留一份 `.bak` |
+| 团队 | 读一个配置好的状态目录（默认 `.agent-teams`），列出运行时真正建出来的每个团队：档案、成员档案与模型路由、每个持久化成员是否真的与其档案一致，以及该团队的任务 |
+| 体检 | 把「配置有没有指错」集中一处：目录解析到了哪、状态目录在不在、有多少声明未被确认，以及该改哪个设置 |
+
+顶部一条徽标汇总「有几件事需要处理」，体检页逐条说明。所有写操作都走 `POST /plugins/dsh-agent-roster/rosters`：宿主侧校验同源（`connection`）、JSON content-type、请求体大小上限与档案库根目录白名单，客户端不直接写文件。
+
+面板是中英双语，语言默认跟随 DSH，可在 **设置 → 插件 → Agent Roster** 里固定（同一节还有只读的配置摘要）。词典放在 `locale/` 由宿主提供，所以切 DSH 语言时面板无需刷新就会跟着变。
+
+## 路由
+
+| 路由 | 方法 | 用途 |
+|---|---|---|
+| `/plugins/dsh-agent-roster/library` | GET | 面板快照：工作区、档案库、档案、团队、提示、计数 |
+| `/plugins/dsh-agent-roster/document` | GET | 单份档案的原文与解析结果（编辑器用） |
+| `/plugins/dsh-agent-roster/rosters` | POST | 新建 / 更新 / 删除 / 导入 / 导出单份档案 |
+| `/plugins/dsh-agent-roster/locale` | GET | 面板词典（`en` / `zh`） |
+
+四条都是 `exact` 路由，走宿主的 `connection` 围栏，方法不符返回 `405`。
 
 ## 配置
 
@@ -138,9 +155,10 @@ npx dsh-agent-roster list --dir rosters
 |---|---|---|
 | `rosterDirs` | `["rosters"]` | 档案库目录（相对工作区）；第一项是工具的默认目录 |
 | `knownToolPolicies` | `[]` | 部署已声明的 toolPolicy id；填了才做交叉校验 |
-| `agentTeamsStateDir` | `.agent-teams` | `roster_verify` 只读的状态目录 |
+| `agentTeamsStateDir` | `.agent-teams` | 只读：`roster_verify` 与「团队」页签在这里找团队状态 |
+| `language` | `"auto"` | 面板语言：`auto` 跟随 DSH，或固定 `zh` / `en` |
 
-三项都是 `volatile`：改完立即生效，无需重启。
+四项都是 `volatile`：改完立即生效，无需重启。
 
 ## 诊断
 
@@ -162,17 +180,19 @@ npx dsh-agent-roster list --dir rosters
 
 ```bash
 npm install
-npm test          # node --test，86 个用例
+npm test          # node --test，122 个用例
 npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往返
+node scripts/check-locale.mjs   # client.js 里的静态 t() 键必须两本词典都有
 ```
 
 ```
-index.js          宿主半边：Config、apply、只读路由
-lib/              format / parse / validate / registry / bridge / verify / render / library / config-view / json / tools
-client.js         客户端半边：左侧栏图标 + 主面板
-locale/           插件列表元信息（en/zh）
+index.js          宿主半边：Config、apply、四条路由
+lib/              format / parse / validate / registry / bridge / verify / render / library /
+                  config-view / json / http / write / service / teams-state / tools
+client.js         客户端半边：左侧栏图标 + 主面板（档案/团队/体检）+ 设置页小节
+locale/           面板与列表词典（en/zh）
 bin/cli.mjs       validate / list / version，给 CI 用
-scripts/          host-smoke.mjs（开发用，不随包发布）
+scripts/          host-smoke.mjs、client-smoke.mjs、check-locale.mjs（开发用，不随包发布）
 examples/         两座示例档案库
 test/             单测
 ```
@@ -181,14 +201,15 @@ test/             单测
 
 本机已验证：
 
-- `npm test` —— 86/86 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、工具契约、客户端加载器契约、快照、配置视图、包清单）。
-- `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册四个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净。
+- `npm test` —— 122/122 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图）。
+- `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册四个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
 - CLI：`validate --dir examples` 对两座示例库退出码 0。
-- 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目）。
+- 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目），重启后按链接读取本仓库文件。
 - 运行中的宿主已能应答只读路由：`GET /plugins/dsh-agent-roster/library` 返回 200，带插件版本与解析出的档案目录。
 - 另一个 agent 会话在工具清单里看到了四个工具，并实际调用了它们。
+- 左侧栏面板已在活页面里确认可见，并展示了真实档案。
 
-这一轮没验证到的：活页面里的面板渲染（面板已从设置页移到左侧栏，改动需要重启宿主后才生效）；修复代码也需要宿主重启才会被加载（当前进程里跑的还是旧模块）。
+这一轮没验证到的：0.2.0 的管理界面（页签、编辑器、团队页、语言切换、`document` / `rosters` 路由）在活页面里的表现——这些改动要重启宿主才会被加载，重启后再验。
 
 验证过程抓到三个真缺陷并已修：
 
