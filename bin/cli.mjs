@@ -10,8 +10,8 @@
  *   dsh-agent-roster list     [--dir rosters]
  */
 import { readFileSync } from "node:fs";
-import nodePath from "node:path";
 
+import { resolveDirSpec } from "../lib/home.js";
 import { scanRosterLibrary } from "../lib/registry.js";
 import { renderRosterList } from "../lib/render.js";
 
@@ -23,7 +23,7 @@ const USAGE = `用法：
   dsh-agent-roster --version         输出版本号
 
 选项：
-  --dir <path>              档案库目录，可重复；默认 rosters/（相对当前目录）
+  --dir <path>              档案库目录，可重复；默认全局库 $DSH_HOME/agent-roster（~/.dsh/agent-roster）
   --known-policy <id>       部署已声明的 toolPolicy id，可重复；用于交叉校验
   --json                    以 JSON 输出（validate 与 list 都支持）
   --help                    显示本帮助
@@ -87,10 +87,11 @@ function main(argv) {
     return 2;
   }
 
-  const dirs = options.dirs.length > 0 ? options.dirs : ["rosters"];
+  const dirs = options.dirs.length > 0 ? options.dirs : [""];
   const knownToolPolicies = options.knownPolicies.length > 0 ? options.knownPolicies : null;
   const reports = dirs.map((dir) => {
-    const rootDir = nodePath.resolve(process.cwd(), dir);
+    // 与插件同一条解析规则：留空 = 全局库，相对路径才相对当前目录。
+    const rootDir = resolveDirSpec(dir, process.cwd());
     const scan = scanRosterLibrary({ rootDir, knownToolPolicies });
     return { dir, rootDir, scan };
   });
