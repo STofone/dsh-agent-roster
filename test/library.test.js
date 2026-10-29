@@ -10,6 +10,7 @@ import nodePath from "node:path";
 import { tmpdir } from "node:os";
 
 import { collectLibrary, markDuplicateIds, serializeRoster } from "../lib/library.js";
+import { globalRosterRoot } from "../lib/home.js";
 import { makeLibrary, rosterDocument } from "./helpers.js";
 
 /** 假 ctx：没有工作区注册表，走"退回进程工作目录"的分支。 */
@@ -23,7 +24,7 @@ function snapshot(config) {
   return collectLibrary(noWorkspaceCtx, config, META);
 }
 
-test("快照：每个配置目录各出一条报告，并按工作区标注 fallback", () => {
+test("快照：绝对路径是全局库，不按工作区翻倍", () => {
   const first = makeLibrary({ "core-review/roster.json": rosterDocument() });
   const second = makeLibrary({
     "research/roster.json": rosterDocument({ roster: "research", title: "调研组" }),
@@ -34,10 +35,12 @@ test("快照：每个配置目录各出一条报告，并按工作区标注 fall
       knownToolPolicies: null,
       agentTeamsStateDir: ".agent-teams",
     });
-    assert.equal(payload.workspaces.length, 2);
+    assert.equal(payload.workspaces.length, 2, "两座全局库 = 两条报告，不随工作区数量变化");
     assert.equal(payload.plugin, "@stofone/dsh-agent-roster");
     assert.deepEqual(payload.rosterDirs, [first.rootDir, second.rootDir]);
-    assert.equal(payload.workspaces[0].fallbackWorkspace, true);
+    assert.equal(payload.workspaces[0].scope, "global");
+    assert.equal(payload.workspaces[0].workspacePath, "");
+    assert.equal(payload.workspaces[0].fallbackWorkspace, false);
     assert.equal(payload.workspaces[0].rosters[0].id, "core-review");
     assert.equal(payload.workspaces[1].rosters[0].id, "research");
     assert.equal(payload.workspaces[0].stats.ok, 1);
@@ -45,6 +48,14 @@ test("快照：每个配置目录各出一条报告，并按工作区标注 fall
     first.cleanup();
     second.cleanup();
   }
+});
+
+test("快照：没配目录时用全局默认库 <DSH_HOME>/agent-roster", () => {
+  const payload = snapshot({ knownToolPolicies: null, agentTeamsStateDir: ".agent-teams" });
+  assert.equal(payload.workspaces.length, 1);
+  assert.equal(payload.rosterDirs[0], "");
+  assert.equal(payload.workspaces[0].scope, "global");
+  assert.equal(payload.workspaces[0].rootDir, globalRosterRoot());
 });
 
 test("快照：空目录不是错误，也不会有 error 级诊断", () => {

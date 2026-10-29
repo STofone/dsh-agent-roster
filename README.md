@@ -28,11 +28,14 @@ The bundle ships `cordis.patch.yml`, so installing it inserts the plugin into th
 
 ## Quick start
 
+The library is **global**: one per machine, not per workspace, and it lives under the DSH data
+directory (`$DSH_HOME/agent-roster`, which is `~/.dsh/agent-roster` by default — in Docker that is
+the mounted volume). It is created on first save; you do not have to make it yourself.
+
 ```
-your-workspace/
-└── rosters/
-    └── core-review/
-        └── roster.yaml
+~/.dsh/agent-roster/
+└── core-review/
+    └── roster.yaml
 ```
 
 ```yaml
@@ -66,18 +69,21 @@ members:
 
 JSON works too (`roster.json`); YAML and JSON are probed in the order `roster.yaml`, `roster.yml`, `roster.json`. Exactly one file per directory — a second one is reported, never silently picked.
 
-This package ships the two libraries used above in [`examples/`](./examples). The default `rosterDirs` is `["rosters"]`, which is empty in a fresh install, so the panel shows "0 rosters" until you either create one or point the setting at `examples`:
+This package ships two example libraries in [`examples/`](./examples). `rosterDirs` is empty by
+default, meaning the global library above, which is empty in a fresh install — so the panel shows
+"0 rosters" until you create one in the UI. To look at the examples instead, point the CLI at them:
 
 ```bash
 # see what the example libraries look like
 npx dsh-agent-roster list --dir examples
 ```
 
-Then ask the model to run `roster_list`, or call the CLI:
+Then ask the model to run `roster_list`, or call the CLI (it reads the same global library by
+default):
 
 ```bash
-npx dsh-agent-roster validate --dir rosters
-npx dsh-agent-roster list --dir rosters
+npx dsh-agent-roster validate
+npx dsh-agent-roster list
 ```
 
 ## File reference
@@ -144,7 +150,7 @@ The panel is bilingual. Its language defaults to the DSH language and can be pin
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/plugins/dsh-agent-roster/library` | GET | panel snapshot: workspaces, libraries, rosters, teams, hints, counts |
+| `/plugins/dsh-agent-roster/library` | GET | panel snapshot: libraries, rosters, teams, hints, counts |
 | `/plugins/dsh-agent-roster/document` | GET | one roster's raw text plus its parsed form (editor) |
 | `/plugins/dsh-agent-roster/rosters` | POST | create / update / delete / import / export one roster |
 | `/plugins/dsh-agent-roster/locale` | GET | `en` / `zh` dictionary for the panel |
@@ -155,7 +161,7 @@ All four are `exact` routes behind the host's `connection` fence and answer `405
 
 | Key | Default | Meaning |
 |---|---|---|
-| `rosterDirs` | `["rosters"]` | library directories, relative to the workspace; the first one is the default for tools |
+| `rosterDirs` | `[]` | library directories. Empty means the global library `$DSH_HOME/agent-roster`; an absolute or `~` path is global too; only a relative path is resolved per workspace. The first entry is what the tools read by default |
 | `knownToolPolicies` | `[]` | tool-policy ids declared by your deployment; enables cross-checks |
 | `agentTeamsStateDir` | `.agent-teams` | read only: where `roster_verify` and the Teams tab look for team state |
 | `language` | `"auto"` | panel language: `auto` follows DSH, or pin `zh` / `en` |
@@ -182,7 +188,7 @@ An empty library is not an error. A missing one is reported as info, not error. 
 
 ```bash
 npm install
-npm test          # node --test, 122 cases
+npm test          # node --test, 133 cases
 npm run smoke     # registers the tools against a real DSH bundle, asserts lossless output
 node scripts/check-locale.mjs   # static t() keys must exist in both dictionaries
 ```
@@ -205,7 +211,7 @@ test/             unit tests
 
 Verified on this machine:
 
-- `npm test` — 122/122 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, the four routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest).
+- `npm test` — 133/133 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, the four routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest).
 - `npm run smoke` — `apply()` registers all four tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
 - CLI: `validate --dir examples` returns exit 0 over both example libraries.
 - Installed into a real profile with the plugin manager (`plugin_manager install_bundle` against this directory → `link:` dependency + bundle entry); the profile re-reads the linked files on restart.

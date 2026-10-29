@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
+import { globalRosterRoot } from "../lib/home.js";
 import { listLibraryRoots, deleteRosterDocument, readRosterDocument, writeRosterDocument } from "../lib/write.js";
 
 const VALID = `kind: dsh-agent-roster/v1
@@ -197,5 +198,26 @@ describe("listLibraryRoots", () => {
     const roots = listLibraryRoots({ rosterDirs: ["rosters"], workspaces: [] });
     assert.equal(roots.length, 1);
     assert.equal(roots[0].rootDir, path.resolve(process.cwd(), "rosters"));
+  });
+
+  it("空配置只给一个全局库，不随工作区翻倍", () => {
+    const roots = listLibraryRoots({ workspaces: [{ path: "C:\\work\\a" }, { path: "C:\\work\\b" }] });
+    assert.equal(roots.length, 1);
+    assert.equal(roots[0].dirSpec, "");
+    assert.equal(roots[0].workspacePath, "");
+    assert.equal(roots[0].rootDir, globalRosterRoot());
+  });
+});
+
+describe("write into a library that does not exist yet", () => {
+  it("creates the directory tree on demand (全局库首次写入)", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "dsh-agent-roster-newroot-"));
+    const rootDir = path.join(tmp, "deep", "agent-roster");
+    const roots = [{ dirSpec: "", workspacePath: "", rootDir, exists: false }];
+
+    const result = writeRosterDocument({ roots, rootDir, text: VALID, overwrite: false });
+    assert.equal(result.ok, true);
+    assert.ok(fs.existsSync(path.join(rootDir, "demo", "roster.yaml")), "目录应被自动创建");
+    fs.rmSync(tmp, { recursive: true, force: true });
   });
 });

@@ -1002,7 +1002,10 @@ window.__ModuleLoader__.load({
         () =>
           (snapshot?.workspaces ?? []).map((workspace) => ({
             rootDir: workspace.rootDir,
-            label: `${workspace.rootDir}${workspace.title ? ` — ${workspace.title}` : ""}`,
+            label:
+              workspace.scope === "global"
+                ? `${t("settings.globalLibrary")} — ${workspace.rootDir}`
+                : `${workspace.rootDir}${workspace.title ? ` — ${workspace.title}` : ""}`,
           })),
         [snapshot],
       );
@@ -1225,7 +1228,13 @@ window.__ModuleLoader__.load({
         h(
           "div",
           { className: "rstr-config" },
-          configRow(t("settings.rosterDirs"), (snapshot?.config?.rosterDirs ?? []).join(", ")),
+          configRow(
+            t("settings.rosterDirs"),
+            (snapshot?.config?.rosterDirs ?? []).length > 0
+              ? snapshot.config.rosterDirs.join(", ")
+              : `${t("settings.globalLibrary")} ${snapshot?.config?.defaultRoot ?? ""}`,
+          ),
+          configRow(t("settings.dataDir"), snapshot?.config?.dshHome ?? ""),
           configRow(t("settings.stateDir"), snapshot?.teams?.stateDir ?? ""),
           configRow(t("settings.policies"), snapshot?.config?.knownToolPolicies?.length ? t("settings.policiesCount", { count: snapshot.config.knownToolPolicies.length }) : t("settings.policiesNone")),
           configRow(t("settings.version"), snapshot?.version ?? ""),
@@ -1337,7 +1346,23 @@ window.__ModuleLoader__.load({
           "div",
           { className: "rstr-settings-row" },
           h("span", { className: "rstr-label" }, t("settings.rosterDirs")),
-          h("code", { className: "rstr-code" }, (library?.data?.config?.rosterDirs ?? []).join(", ") || "—"),
+          h(
+            "code",
+            { className: "rstr-code rstr-truncate", title: (library?.data?.config?.rosterDirs ?? []).join(", ") },
+            (library?.data?.config?.rosterDirs ?? []).length > 0
+              ? library.data.config.rosterDirs.join(", ")
+              : `${t("settings.globalLibrary")} ${library?.data?.config?.defaultRoot ?? ""}`,
+          ),
+        ),
+        h(
+          "div",
+          { className: "rstr-settings-row" },
+          h("span", { className: "rstr-label" }, t("settings.dataDir")),
+          h(
+            "code",
+            { className: "rstr-code rstr-truncate", title: library?.data?.config?.defaultRoot ?? "" },
+            library?.data?.config?.dshHome ?? "—",
+          ),
         ),
         h(
           "div",

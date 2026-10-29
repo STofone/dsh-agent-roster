@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
+import { globalRosterRoot } from "../lib/home.js";
 import { buildHints, buildPanelSnapshot, countDeployments, resolveRoots } from "../lib/service.js";
 
 const ROSTER = `kind: dsh-agent-roster/v1
@@ -157,10 +158,11 @@ describe("resolveRoots", () => {
     assert.equal(roots[1].rootDir, path.resolve("C:\\work\\a", "extra"));
   });
 
-  it("defaults to the rosters directory", () => {
+  it("defaults to the global library under DSH_HOME", () => {
     const roots = resolveRoots({ get: () => undefined }, { rosterDirs: [] });
     assert.equal(roots.length, 1);
-    assert.equal(roots[0].rootDir, path.resolve(process.cwd(), "rosters"));
+    assert.equal(roots[0].rootDir, globalRosterRoot());
+    assert.equal(roots[0].workspacePath, "", "全局库不属于任何工作区");
   });
 });
 

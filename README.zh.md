@@ -26,11 +26,14 @@
 
 ## 快速开始
 
+档案库是**全局**的：一台机器一份，不跟工作区走，放在 DSH 数据目录下
+（`$DSH_HOME/agent-roster`，默认 `~/.dsh/agent-roster`；docker 部署时就是被挂载的数据卷）。
+目录在第一次保存时自动创建，不需要你提前建。
+
 ```
-your-workspace/
-└── rosters/
-    └── core-review/
-        └── roster.yaml
+~/.dsh/agent-roster/
+└── core-review/
+    └── roster.yaml
 ```
 
 ```yaml
@@ -64,18 +67,19 @@ members:
 
 JSON 也可以（`roster.json`）。同一目录下按 `roster.yaml` → `roster.yml` → `roster.json` 顺序探测，**只认一份**；出现第二份会报诊断，绝不静默挑一份。
 
-本包自带两份示例档案库（[`examples/`](./examples)）。默认 `rosterDirs` 是 `["rosters"]`，新装的目录里是空的，所以面板一开始显示「0 份档案」——要么自己建一份，要么把设置里的 `rosterDirs` 指到 `examples`：
+本包自带两份示例档案库（[`examples/`](./examples)）。`rosterDirs` 默认留空，也就是上面那座全局库；
+新装时它是空的，所以面板一开始显示「0 份档案」——在面板里新建一份即可（目录会自动创建）。想先看示例库：
 
 ```bash
 # 先看看示例库长什么样
 npx dsh-agent-roster list --dir examples
 ```
 
-之后让模型调用 `roster_list`，或用 CLI：
+之后让模型调用 `roster_list`，或用 CLI（默认读同一座全局库）：
 
 ```bash
-npx dsh-agent-roster validate --dir rosters
-npx dsh-agent-roster list --dir rosters
+npx dsh-agent-roster validate
+npx dsh-agent-roster list
 ```
 
 ## 格式说明
@@ -153,7 +157,7 @@ npx dsh-agent-roster list --dir rosters
 
 | 键 | 默认值 | 含义 |
 |---|---|---|
-| `rosterDirs` | `["rosters"]` | 档案库目录（相对工作区）；第一项是工具的默认目录 |
+| `rosterDirs` | `[]` | 档案库目录。留空 = 全局库 `$DSH_HOME/agent-roster`（默认 `~/.dsh/agent-roster`）；绝对路径或 `~` 开头同样是全局的；只有相对路径才按工作区解析。第一项是工具的默认目录 |
 | `knownToolPolicies` | `[]` | 部署已声明的 toolPolicy id；填了才做交叉校验 |
 | `agentTeamsStateDir` | `.agent-teams` | 只读：`roster_verify` 与「团队」页签在这里找团队状态 |
 | `language` | `"auto"` | 面板语言：`auto` 跟随 DSH，或固定 `zh` / `en` |
@@ -180,7 +184,7 @@ npx dsh-agent-roster list --dir rosters
 
 ```bash
 npm install
-npm test          # node --test，123 个用例
+npm test          # node --test，133 个用例
 npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往返
 node scripts/check-locale.mjs   # client.js 里的静态 t() 键必须两本词典都有
 ```
@@ -201,7 +205,7 @@ test/             单测
 
 本机已验证：
 
-- `npm test` —— 123/123 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束）。
+- `npm test` —— 133/133 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束）。
 - `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册四个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
 - CLI：`validate --dir examples` 对两座示例库退出码 0。
 - 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目），重启后按链接读取本仓库文件。

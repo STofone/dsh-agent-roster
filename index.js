@@ -42,8 +42,12 @@ export const inject = ["tools"];
 export const Config = z.object({
   rosterDirs: z
     .array(z.string())
-    .default(["rosters"])
-    .description("档案库目录；相对路径以当前会话工作区为基准。第一项是工具默认读取的档案库。")
+    .default([])
+    .description(
+      "档案库目录。留空 = 全局默认目录 $DSH_HOME/agent-roster（默认 ~/.dsh/agent-roster，" +
+        "docker 下就是被挂载的数据卷），与工作区无关。填绝对路径或 ~ 开头路径同样是全局的；" +
+        "只有填相对路径（如 examples）才按工作区解析。第一项是四个工具默认读取的档案库。",
+    )
     .volatile(),
   knownToolPolicies: z
     .array(z.string())
