@@ -9,6 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 /** React 的最小替身：只够 factory 加载期用（组件函数此时不会被调用）。 */
 const ReactStub = {
@@ -149,4 +150,16 @@ test("有 locale / configForms 时 apply 会订阅并释放", async () => {
   for (const dispose of disposers) dispose();
   assert.equal(unsubscribed.includes("locale"), true);
   assert.equal(unsubscribed.includes("form"), true);
+});
+
+test("面板样式只用宿主语义 token（不写死颜色）", () => {
+  const source = readFileSync(new URL("../client.js", import.meta.url), "utf8");
+  const css = source.match(/const CSS = `([\s\S]*?)`;/)[1];
+
+  const hex = css.match(/#[0-9a-fA-F]{3,8}\b/g) ?? [];
+  assert.deepEqual(hex, [], "CSS 里写了硬编码颜色；暗色主题下会白底白字，请改用 --dsw-alias-*");
+
+  for (const match of css.matchAll(/var\((--[a-z0-9-]+)/g)) {
+    assert.match(match[1], /^--dsw-alias-/, `只用语义层 token（静态色板随主题变）：${match[1]}`);
+  }
 });

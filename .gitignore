@@ -147,3 +147,6 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# scratch scripts and screenshots (tmp/)
+tmp/
