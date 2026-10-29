@@ -13,11 +13,85 @@
       "repo": "github:STofone/dsh-agent-roster",
       "ref": "main",
       "path": "examples",
-      "rosters": ["core-review", "research"],
-      "tags": ["starter", "review", "research"],
+      "rosters": [
+        "core-review",
+        "research"
+      ],
+      "tags": [
+        "starter",
+        "review",
+        "research"
+      ],
       "license": "MIT",
-      "maintainers": ["STofone"],
+      "maintainers": [
+        "STofone"
+      ],
       "homepage": "https://github.com/STofone/dsh-agent-roster#examples"
+    },
+    {
+      "id": "agent-teams",
+      "title": "Agent Teams（wshobson/agents 迁移）",
+      "description": "把 wshobson/agents 的 agent-teams 插件（4.2 万星，MIT）迁成档案：队长、实现者、审查者、调试者，保留上游工具边界。",
+      "repo": "github:STofone/dsh-roster-agent-teams",
+      "ref": "main",
+      "path": "rosters",
+      "rosters": [
+        "agent-teams"
+      ],
+      "tags": [
+        "team",
+        "orchestration",
+        "claude-code",
+        "wshobson"
+      ],
+      "license": "MIT",
+      "maintainers": [
+        "STofone"
+      ],
+      "homepage": "https://github.com/STofone/dsh-roster-agent-teams"
+    },
+    {
+      "id": "metagpt-company",
+      "title": "MetaGPT 软件公司（迁移）",
+      "description": "MetaGPT（5 万星+，MIT）的软件公司角色：产品经理、架构师、项目经理、工程师，字段取自上游 Role 的 profile/goal/constraints。",
+      "repo": "github:STofone/dsh-roster-metagpt-company",
+      "ref": "main",
+      "path": "rosters",
+      "rosters": [
+        "metagpt-company"
+      ],
+      "tags": [
+        "software-company",
+        "sdlc",
+        "metagpt"
+      ],
+      "license": "MIT",
+      "maintainers": [
+        "STofone"
+      ],
+      "homepage": "https://github.com/STofone/dsh-roster-metagpt-company"
+    },
+    {
+      "id": "openmanus",
+      "title": "OpenManus 三件套（迁移）",
+      "description": "OpenManus（5.8 万星，MIT）的三个代理提示词：规划、编码、浏览器，systemPrompt 保留上游原文。",
+      "repo": "github:STofone/dsh-roster-openmanus",
+      "ref": "main",
+      "path": "rosters",
+      "rosters": [
+        "openmanus"
+      ],
+      "tags": [
+        "agent",
+        "browser",
+        "coding",
+        "openmanus"
+      ],
+      "license": "MIT",
+      "maintainers": [
+        "STofone"
+      ],
+      "homepage": "https://github.com/STofone/dsh-roster-openmanus"
     }
   ]
 }
