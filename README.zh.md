@@ -22,7 +22,7 @@
 @stofone/dsh-agent-roster
 ```
 
-包内带 `cordis.patch.yml`，安装即把插件插进 profile。装好后应看到四个工具（`roster_list`、`roster_show`、`roster_create`、`roster_verify`）以及设置页里的 **Agent Roster** 面板。
+包内带 `cordis.patch.yml`，安装即把插件插进 profile。装好后应看到四个工具（`roster_list`、`roster_show`、`roster_create`、`roster_verify`）以及左侧栏里的 **Agent Roster** 面板（独立主面板，不再放设置页）。
 
 ## 快速开始
 
@@ -124,9 +124,9 @@ npx dsh-agent-roster list --dir rosters
 
 三个带路径的工具（`roster_list` / `roster_show` / `roster_create`）都接受 `path` 参数：给了就只看那个目录，不会悄悄回落到配置目录。
 
-## 设置页面板
+## 左侧栏面板
 
-客户端插件在设置页新增 **Agent Roster** 区块，只读拉取 `/plugins/dsh-agent-roster/library`（`no-store`）：
+客户端插件在左侧全局栏新增一行 **Agent Roster** 图标（`sidebar.panellist` 列表槽），并在 `main` 槽用同一个面板 id 注册整页内容；点图标即在主区域打开，宽度与对话页一致。内容只读拉取 `/plugins/dsh-agent-roster/library`（`no-store`）：
 
 - 档案卡片：id、版本、成员数、标签、该文件的诊断数；
 - 展开后是成员表：姓名、角色、provider/model、effort、工具策略、继承字段、人设长度；
@@ -169,7 +169,7 @@ npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往
 ```
 index.js          宿主半边：Config、apply、只读路由
 lib/              format / parse / validate / registry / bridge / verify / render / library / config-view / json / tools
-client.js         客户端半边：设置页 section
+client.js         客户端半边：左侧栏图标 + 主面板
 locale/           插件列表元信息（en/zh）
 bin/cli.mjs       validate / list / version，给 CI 用
 scripts/          host-smoke.mjs（开发用，不随包发布）
@@ -188,7 +188,7 @@ test/             单测
 - 运行中的宿主已能应答只读路由：`GET /plugins/dsh-agent-roster/library` 返回 200，带插件版本与解析出的档案目录。
 - 另一个 agent 会话在工具清单里看到了四个工具，并实际调用了它们。
 
-这一轮没验证到的：活页面里的设置页面板（页面需要重启才会加载新装插件）；修复代码也需要宿主重启才会被加载（当前进程里跑的还是旧模块）。
+这一轮没验证到的：活页面里的面板渲染（面板已从设置页移到左侧栏，改动需要重启宿主后才生效）；修复代码也需要宿主重启才会被加载（当前进程里跑的还是旧模块）。
 
 验证过程抓到三个真缺陷并已修：
 

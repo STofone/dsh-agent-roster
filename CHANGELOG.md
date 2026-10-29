@@ -14,12 +14,13 @@
 - 核对层：只读 `dsh-agent-teams` 的 `team.json`，逐字段比对并判为 `applied` / `overridden` /
   `omitted` / `unconfirmed`；状态缺失时降级而不是假装通过。
 - 四个工具：`roster_list`、`roster_show`、`roster_create`、`roster_verify`。
-- 设置页面板：工作区 × 档案库快照（只读路由 `/plugins/dsh-agent-roster/library`），
-  档案卡片与成员表；取不到工作区注册表时标注回退到进程工作目录。
+- 左侧栏面板：`sidebar.panellist` 一行图标 + 同 id 的 `main` 键控槽整页内容；点击后在主区域
+  打开工作区 × 档案库快照（只读路由 `/plugins/dsh-agent-roster/library`），档案卡片与成员表；
+  取不到工作区注册表时标注回退到进程工作目录。
 - CLI `dsh-agent-roster`：`validate` / `list` / `version`，`--dir`、`--known-policy`、`--json`；
   退出码 0 = 通过，1 = 至少一个 error，2 = 用法错误。
 - 两座示例档案库（`examples/core-review`、`examples/research`）。
-- 单测 86 个用例，覆盖格式、解析、校验、扫描、路径解析、桥接、核对、无损 JSON、工具契约（状态行/无损输出）、客户端加载器契约、面板快照与包清单自洽。
+- 单测 88 个用例，覆盖格式、解析、校验、扫描、路径解析、桥接、核对、无损 JSON、工具契约（状态行/无损输出）、客户端加载器契约（两个槽位 + 身份一致）、面板快照与包清单自洽。
 - 宿主半边冒烟脚本 `scripts/host-smoke.mjs`：用真实 `defineTool` 注册并调用四个工具，断言输出可无损往返。
 
 ### Changed

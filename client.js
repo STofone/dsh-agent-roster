@@ -1,11 +1,15 @@
 /**
- * 浏览器半边：在 Web 设置的 Plugins 区挂一个只读的「Agent Roster」面板。
+ * 浏览器半边：在左侧全局栏加一个「Agent Roster」面板。
  *
  * 面板只做三件事：列出工作区里的档案库、展开看成员与字段归宿、把校验诊断原样摆出来。
  * 它不写文件、不创建团队——写操作仍然走 Host 侧的工具，面板是"看得见"的那一半。
  *
  * 数据来自 Host 注册的只读 JSON 路由（GET /plugins/dsh-agent-roster/library），
  * 因此不依赖任何 Remote 协议，也不需要额外的构建步骤。
+ *
+ * 位置：`main` 键控槽（同名 key 渲染主区域内容）+ `sidebar.panellist` 列表槽
+ * （左侧全局栏的一行图标）。两者用同一个 PANEL_ID 关联，宿主侧边栏点击图标即
+ * 调用 ctx.layout.selectPanel(PANEL_ID)。
  */
 window.__ModuleLoader__.load({
   id: "@stofone/dsh-agent-roster",
@@ -15,6 +19,9 @@ window.__ModuleLoader__.load({
 
     /** 本插件自有的词典命名空间。 */
     const NS = "agentRoster";
+
+    /** 主面板身份：`main` 槽的 key 与 `sidebar.panellist` 的 id 必须一致。 */
+    const PANEL_ID = "agent-roster";
 
     /** Host 侧只读路由：返回当前工作区的档案库快照。 */
     const LIBRARY_ROUTE = "/plugins/dsh-agent-roster/library";
@@ -86,9 +93,10 @@ window.__ModuleLoader__.load({
     };
 
     const css = {
-      section: {
-        width: "100%",
-        maxWidth: 760,
+      page: {
+        height: "100%",
+        overflowY: "auto",
+        padding: "20px 24px 32px",
         display: "flex",
         flexDirection: "column",
         gap: 14,
@@ -96,13 +104,14 @@ window.__ModuleLoader__.load({
         fontSize: 13,
         lineHeight: "20px",
       },
+      column: { width: "100%", maxWidth: 980, margin: "0 auto", display: "flex", flexDirection: "column", gap: 14 },
       header: {
         display: "flex",
         alignItems: "flex-start",
         gap: 12,
       },
       headerText: { flex: "1", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 },
-      title: { fontSize: 15, fontWeight: 500, lineHeight: "22px" },
+      title: { fontSize: 16, fontWeight: 500, lineHeight: "24px" },
       subtitle: { color: "var(--dsw-alias-label-tertiary)", fontSize: 12, lineHeight: "18px" },
       button: {
         flex: "none",
@@ -123,6 +132,14 @@ window.__ModuleLoader__.load({
         lineHeight: "18px",
       },
       failure: { color: "var(--dsw-alias-state-error-primary)", display: "flex", gap: 10, alignItems: "center" },
+      workspace: { display: "flex", flexDirection: "column", gap: 10 },
+      workspacePath: {
+        fontFamily: "var(--ds-font-family-code)",
+        fontSize: 12,
+        color: "var(--dsw-alias-label-tertiary)",
+        overflowWrap: "anywhere",
+      },
+      cards: { display: "flex", flexDirection: "column", gap: 10 },
       card: {
         border: ".5px solid var(--dsw-alias-settings-card-stroke)",
         borderRadius: "var(--dsw-radius-xl)",
@@ -132,7 +149,7 @@ window.__ModuleLoader__.load({
         flexDirection: "column",
         gap: 8,
       },
-      cardHead: { display: "flex", alignItems: "baseline", gap: 8, cursor: "pointer" },
+      cardHead: { display: "flex", alignItems: "baseline", gap: 8, cursor: "pointer", flexWrap: "wrap" },
       cardTitle: { fontSize: 14, fontWeight: 500, lineHeight: "20px", flex: "1", minWidth: 0 },
       identity: {
         fontFamily: "var(--ds-font-family-code)",
@@ -153,7 +170,14 @@ window.__ModuleLoader__.load({
       },
       term: { color: "var(--dsw-alias-label-tertiary)", fontSize: 11, lineHeight: "17px" },
       value: { margin: 0, color: "var(--dsw-alias-label-secondary)", fontSize: 12, lineHeight: "17px", overflowWrap: "anywhere" },
-      members: { display: "flex", flexDirection: "column", gap: 6, borderTop: ".5px solid var(--dsw-alias-border-l2)", paddingTop: 8 },
+      members: {
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+        gap: 6,
+        borderTop: ".5px solid var(--dsw-alias-border-l2)",
+        paddingTop: 8,
+        alignItems: "start",
+      },
       member: {
         display: "flex",
         flexDirection: "column",
@@ -315,26 +339,30 @@ window.__ModuleLoader__.load({
       );
     }
 
-    /** 设置页里的整个面板。 */
-    function AgentRosterSection() {
+    /** 主面板内容（`main` 槽，key = PANEL_ID）。 */
+    function AgentRosterPage() {
       const { state, load } = useLibrary();
       const busy = state.status === "loading";
 
       if (state.status === "failed") {
         return h(
           "div",
-          { style: css.section },
+          { style: css.page },
           h(
             "div",
-            { style: css.failure },
-            h("span", null, `${t_("failed")}: ${state.error}`),
-            h("button", { type: "button", style: css.button, onClick: load }, t_("retry")),
+            { style: css.column },
+            h(
+              "div",
+              { style: css.failure },
+              h("span", null, `${t_("failed")}: ${state.error}`),
+              h("button", { type: "button", style: css.button, onClick: load }, t_("retry")),
+            ),
           ),
         );
       }
 
       if (busy && state.payload === null) {
-        return h("div", { style: css.section }, h("div", { style: css.meta }, t_("refreshing")));
+        return h("div", { style: css.page }, h("div", { style: css.column }, h("div", { style: css.meta }, t_("refreshing"))));
       }
 
       const payload = state.payload;
@@ -342,48 +370,72 @@ window.__ModuleLoader__.load({
 
       return h(
         "div",
-        { style: css.section },
+        { style: css.page },
         h(
           "div",
-          { style: css.header },
+          { style: css.column },
           h(
             "div",
-            { style: css.headerText },
-            h("div", { style: css.title }, t_("title")),
-            h("div", { style: css.subtitle }, t_("subtitle")),
+            { style: css.header },
+            h(
+              "div",
+              { style: css.headerText },
+              h("div", { style: css.title }, t_("title")),
+              h("div", { style: css.subtitle }, t_("subtitle")),
+            ),
+            h("button", { type: "button", style: css.button, onClick: load, disabled: busy }, busy ? t_("refreshing") : t_("refresh")),
           ),
-          h("button", { type: "button", style: css.button, onClick: load, disabled: busy }, busy ? t_("refreshing") : t_("refresh")),
-        ),
-        ...(payload.workspaces ?? []).map((workspace, index) =>
-          h(
-            "div",
-            { key: `${workspace.rootDir}-${index}`, style: { display: "flex", flexDirection: "column", gap: 10 } },
-            workspace.fallbackWorkspace ? h("div", { style: css.notice }, t_("fallbackWorkspace")) : null,
-            h("div", { style: css.meta }, `${workspace.workspace || workspace.workspacePath} · ${workspace.rootDir}`),
-            workspace.rosters.length === 0
-              ? h(
-                  "div",
-                  { style: css.notice },
-                  h("div", null, t_("empty")),
-                  h("div", null, t_("emptyHint")),
-                )
-              : null,
-            ...workspace.rosters.map((roster) => h(RosterCard, { key: roster.file, roster })),
-            workspace.diagnostics.length === 0
-              ? null
-              : h(
-                  "div",
-                  { style: css.members },
-                  workspace.diagnostics.map((diagnostic, diagnosticIndex) =>
-                    h(
-                      "div",
-                      { key: `${diagnostic.code}-${diagnosticIndex}`, style: css.diag },
-                      `${diagnostic.severity}: ${diagnostic.code}${diagnostic.path ? ` @ ${diagnostic.path}` : ""} — ${diagnostic.reason}`,
+          ...(payload.workspaces ?? []).map((workspace, index) =>
+            h(
+              "div",
+              { key: `${workspace.rootDir}-${index}`, style: css.workspace },
+              h("div", { style: css.workspacePath }, `${workspace.workspace || workspace.workspacePath} · ${workspace.rootDir}`),
+              workspace.fallbackWorkspace ? h("div", { style: css.notice }, t_("fallbackWorkspace")) : null,
+              workspace.rosters.length === 0
+                ? h("div", { style: css.notice }, h("div", null, t_("empty")), h("div", null, t_("emptyHint")))
+                : h("div", { style: css.cards }, ...workspace.rosters.map((roster) => h(RosterCard, { key: roster.file, roster }))),
+              workspace.diagnostics.length === 0
+                ? null
+                : h(
+                    "div",
+                    { style: css.cards },
+                    workspace.diagnostics.map((diagnostic, diagnosticIndex) =>
+                      h(
+                        "div",
+                        { key: `${diagnostic.code}-${diagnosticIndex}`, style: css.diag },
+                        `${diagnostic.severity}: ${diagnostic.code}${diagnostic.path ? ` @ ${diagnostic.path}` : ""} — ${diagnostic.reason}`,
+                      ),
                     ),
                   ),
-                ),
+            ),
           ),
         ),
+      );
+    }
+
+    /**
+     * 左侧全局栏的图标（`sidebar.panellist` 列表槽）。
+     * 只用内联 SVG，不额外引入图标包：两个头型表示"一队成员"。
+     */
+    function AgentRosterIcon({ size = 16, active = false }) {
+      return h(
+        "svg",
+        {
+          width: size,
+          height: size,
+          viewBox: "0 0 16 16",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: 1.15,
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          "aria-hidden": "true",
+          style: { opacity: active ? 1 : 0.82 },
+        },
+        h("circle", { cx: 6.1, cy: 5.4, r: 2.3 }),
+        h("path", { d: "M2.2 13.2c0-2.1 1.85-3.4 3.9-3.4s3.9 1.3 3.9 3.4" }),
+        h("circle", { cx: 11.5, cy: 4.6, r: 1.75, opacity: 0.65 }),
+        h("path", { d: "M9.9 9.7c2 .15 3.9 1.35 3.9 3.5", opacity: 0.65 }),
       );
     }
 
@@ -391,7 +443,7 @@ window.__ModuleLoader__.load({
       /** 依赖：槽位账本与词典服务。 */
       inject: ["slots", "locale"],
       /**
-       * 注册词典并把面板挂进设置页。
+       * 注册词典，并把面板挂到左侧全局栏（主面板内容 + 侧边栏图标）。
        * @param {object} ctx - 浏览器插件上下文。
        */
       apply(ctx) {
@@ -399,16 +451,26 @@ window.__ModuleLoader__.load({
         ctx.effect(() => ctx.locale.register(NS, dict), "dsh-agent-roster: dictionaries");
         const t = ctx.locale.bind(NS);
         translate = t;
-        ctx.slots.inject("settings.section", () =>
+        ctx.slots.inject("main", () =>
           ctx.slots.register(
             {
-              name: "settings.section",
-              id: "agent-roster",
-              order: 40,
-              label: () => t("nav"),
+              name: "main",
+              key: PANEL_ID,
               locale: NS,
             },
-            AgentRosterSection,
+            AgentRosterPage,
+          ),
+        );
+        ctx.slots.inject("sidebar.panellist", () =>
+          ctx.slots.register(
+            {
+              name: "sidebar.panellist",
+              id: PANEL_ID,
+              order: 30,
+              locale: NS,
+              label: () => t("nav"),
+            },
+            AgentRosterIcon,
           ),
         );
       },

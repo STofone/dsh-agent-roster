@@ -84,7 +84,8 @@
       "platform": "web",
       "immediately": false,
       "inject": [
-        "@deepseek-ai/dsh-client-ui-settings"
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
       ]
     }
   },

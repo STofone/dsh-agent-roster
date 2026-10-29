@@ -3,9 +3,9 @@
  *
  * `client.js` 是给模块加载器用的：它调用 `window.__ModuleLoader__.load({id, factory})`，
  * factory 拿到一个 `require` 再返回 `{ inject, apply }`。这里用一个最小加载器把它跑一遍，
- * 断言三件事——模块能加载、`apply()` 真的往 `settings.section` 注册了面板、释放干净。
+ * 断言三件事——模块能加载、`apply()` 真的往左侧栏的两个槽登记了东西、释放干净。
  *
- * 它证明不了"像素长什么样"，但能挡住改坏入口、改错槽位名、`apply` 里抛异常这类真故障。
+ * 它证明不了"像素长什么样"，但能挡住改坏入口、改错槽位名、两处 key/id 不一致、`apply` 里抛异常这类真故障。
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -48,6 +48,7 @@ async function loadClient() {
   const registrations = [];
   const dictionaries = [];
   const disposers = [];
+  const slots = [];
   const ctx = {
     effect(fn) {
       disposers.push(fn());
@@ -63,7 +64,7 @@ async function loadClient() {
     },
     slots: {
       inject(name, fn) {
-        assert.equal(name, "settings.section", "面板必须挂进设置页的 section 槽");
+        slots.push(name);
         return fn();
       },
       register(meta, component) {
@@ -74,25 +75,41 @@ async function loadClient() {
   };
 
   module.apply(ctx);
-  return { module, registrations, dictionaries, disposers };
+  return { module, registrations, dictionaries, disposers, slots };
 }
 
-test("模块 id 是包名", async () => {
+test("模块 id 是包名，注入槽位与词典服务", async () => {
   const { module } = await loadClient();
-  assert.equal(module.inject.length > 0, true);
   assert.deepEqual(module.inject, ["slots", "locale"]);
 });
 
-test("apply 把面板注册到 settings.section，并带稳定 id 与排序", async () => {
+test("apply 只注册左侧栏的两个槽：main 与 sidebar.panellist", async () => {
+  const { registrations, slots } = await loadClient();
+  assert.deepEqual(slots, ["main", "sidebar.panellist"], "面板必须挂左侧全局栏，不再进设置页");
+  assert.equal(registrations.length, 2);
+  assert.equal(registrations.some(({ meta }) => meta.name === "settings.section"), false, "不该再往设置页注册");
+});
+
+test("main 槽用键控登记，key 是面板 id", async () => {
   const { registrations } = await loadClient();
-  assert.equal(registrations.length, 1, "应只注册一个 section");
-  const { meta, component } = registrations[0];
-  assert.equal(meta.name, "settings.section");
-  assert.equal(meta.id, "agent-roster");
-  assert.equal(typeof meta.order, "number");
-  assert.equal(typeof meta.label, "function");
-  assert.equal(meta.locale, "agentRoster");
-  assert.equal(typeof component, "function");
+  const main = registrations.find(({ meta }) => meta.name === "main");
+  assert.ok(main, "缺少 main 槽登记");
+  assert.equal(main.meta.key, "agent-roster");
+  assert.equal(main.meta.locale, "agentRoster");
+  assert.equal(main.meta.id, undefined, "keyed 槽用 key 而不是 id");
+  assert.equal(typeof main.component, "function");
+});
+
+test("sidebar.panellist 的 id 与 main 的 key 是同一个面板身份", async () => {
+  const { registrations } = await loadClient();
+  const main = registrations.find(({ meta }) => meta.name === "main");
+  const entry = registrations.find(({ meta }) => meta.name === "sidebar.panellist");
+  assert.ok(entry, "缺少 sidebar.panellist 登记");
+  assert.equal(entry.meta.id, main.meta.key, "两处身份不一致时点击图标切不到面板");
+  assert.equal(typeof entry.meta.order, "number");
+  assert.equal(entry.meta.locale, "agentRoster");
+  assert.equal(typeof entry.meta.label, "function");
+  assert.equal(typeof entry.component, "function");
 });
 
 test("词典以自有命名空间注册", async () => {
@@ -109,7 +126,8 @@ test("词典以自有命名空间注册", async () => {
 
 test("label() 走词典而不是硬编码文案", async () => {
   const { registrations } = await loadClient();
-  assert.equal(registrations[0].meta.label(), "agentRoster:nav");
+  const entry = registrations.find(({ meta }) => meta.name === "sidebar.panellist");
+  assert.equal(entry.meta.label(), "agentRoster:nav");
 });
 
 test("effect 注册可释放", async () => {

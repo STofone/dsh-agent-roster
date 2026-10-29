@@ -24,7 +24,7 @@ From the plugin manager, point it at this repository (absolute path) or at the p
 @stofone/dsh-agent-roster
 ```
 
-The bundle ships `cordis.patch.yml`, so installing it inserts the plugin into the profile automatically. After install you should see four tools (`roster_list`, `roster_show`, `roster_create`, `roster_verify`) and an **Agent Roster** section in Settings.
+The bundle ships `cordis.patch.yml`, so installing it inserts the plugin into the profile automatically. After install you should see four tools (`roster_list`, `roster_show`, `roster_create`, `roster_verify`) and an **Agent Roster** entry in the left sidebar (a full main panel, not a Settings section).
 
 ## Quick start
 
@@ -66,7 +66,7 @@ members:
 
 JSON works too (`roster.json`); YAML and JSON are probed in the order `roster.yaml`, `roster.yml`, `roster.json`. Exactly one file per directory — a second one is reported, never silently picked.
 
-This package ships the two libraries used above in [`examples/`](./examples). The default `rosterDirs` is `["rosters"]`, which is empty in a fresh install, so the settings panel shows "0 rosters" until you either create one or point the setting at `examples`:
+This package ships the two libraries used above in [`examples/`](./examples). The default `rosterDirs` is `["rosters"]`, which is empty in a fresh install, so the panel shows "0 rosters" until you either create one or point the setting at `examples`:
 
 ```bash
 # see what the example libraries look like
@@ -126,9 +126,9 @@ All four are read-only with respect to team state. `roster_create` only produces
 
 `roster_list`, `roster_show`, `roster_create` and `roster_verify` all accept a `path` argument: when given, it is the library root, with no silent fallback to the configured directory.
 
-## Settings panel
+## Sidebar panel
 
-The client plugin adds an **Agent Roster** section to Settings. It fetches `/plugins/dsh-agent-roster/library` (read-only, `no-store`) and renders each workspace × library with:
+The client plugin adds an **Agent Roster** entry to the left sidebar: one row in the `sidebar.panellist` slot plus the matching key in the `main` slot. Clicking the row opens a full-width page (same width as the conversation) that fetches `/plugins/dsh-agent-roster/library` (read-only, `no-store`) and renders each workspace × library with:
 
 - roster cards: id, version, member count, tags, per-file diagnostics;
 - expandable member table: name, role, provider/model, effort, tool policy, inherited fields, prompt length;
@@ -175,7 +175,7 @@ Layout:
 ```
 index.js          host plugin: Config, apply, web route
 lib/              format, parse, validate, registry, bridge, verify, render, library, config-view, json, tools
-client.js         client plugin: settings section
+client.js         client plugin: sidebar entry + main panel
 locale/           plugin listing metadata (en/zh)
 bin/cli.mjs       validate/list/version for CI
 scripts/          host-smoke.mjs (dev only, not shipped)
@@ -194,7 +194,7 @@ Verified on this machine:
 - The read-only route answers from the running host: `GET /plugins/dsh-agent-roster/library` → 200 with the plugin version and resolved rosters.
 - A second agent session saw all four tools in its tool list and called them.
 
-Not verified in this pass: the settings panel rendering inside a live page (the page has to be restarted to pick up the installed plugin), and the fixes below only take effect after the host restarts (the running process still holds the old modules).
+Not verified in this pass: the panel rendering inside a live page (the panel moved from Settings into the left sidebar, and the change needs a host restart to load), and the fixes below only take effect after the host restarts (the running process still holds the old modules).
 
 Three real defects were found by this verification and fixed:
 

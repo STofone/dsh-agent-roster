@@ -65,13 +65,15 @@ test("清单：图标是合法 SVG 且没大得离谱", () => {
   assert.ok(statSync(file).size < 64 * 1024, "icon 体积应远小于 256KiB 上限");
 });
 
-test("客户端半边：能被模块表加载，且挂的是设置页槽位", () => {
+test("客户端半边：能被模块表加载，且挂的是左侧全局栏槽位", () => {
   const source = readFileSync(nodePath.join(root, "client.js"), "utf8");
   assert.match(source, /window\.__ModuleLoader__\.load\(/, "必须走模块表加载");
   assert.match(source, /id: "@stofone\/dsh-agent-roster"/, "模块 id 必须是包名");
   assert.match(source, /factory\(require\)/, "必须是 factory 形式");
   assert.match(source, /require\("react"\)/, "必须从宿主模块表拿 React");
-  assert.match(source, /settings\.section/, "必须贡献到设置页 section 槽位");
+  assert.match(source, /"main"/, "必须贡献主面板内容槽");
+  assert.match(source, /"sidebar\.panellist"/, "必须在左侧全局栏占一行图标");
+  assert.doesNotMatch(source, /settings\.section/, "面板不再挂在设置页里");
   assert.match(source, /\/plugins\/dsh-agent-roster\/library/, "面板必须读 Host 的只读路由");
   // 纯语法检查：编译通过即可，不执行（执行需要浏览器模块表）。
   assert.doesNotThrow(() => new Function(source), "client.js 必须语法合法");
