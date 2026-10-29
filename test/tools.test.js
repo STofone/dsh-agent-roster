@@ -58,9 +58,15 @@ async function call(tools, name, args) {
   return { value, firstLine, text: blocks[0].text };
 }
 
-test("注册四个工具，且每个都能在 examples 上执行", async () => {
+test("注册五个工具，前四个能在 examples 上执行", async () => {
   const { tools } = register();
-  assert.deepEqual([...tools.keys()].sort(), ["roster_create", "roster_list", "roster_show", "roster_verify"]);
+  assert.deepEqual([...tools.keys()].sort(), [
+    "roster_create",
+    "roster_index",
+    "roster_list",
+    "roster_show",
+    "roster_verify",
+  ]);
 
   const list = await call(tools, "roster_list", { path: examples });
   assert.match(list.firstLine, /total=2/);
@@ -102,7 +108,7 @@ test("显式 path 覆盖配置目录（真机回归点）", async () => {
 
 test("释放后不残留工具", () => {
   const { tools, disposers } = register();
-  assert.equal(tools.size, 4);
+  assert.equal(tools.size, 5);
   for (const dispose of disposers) dispose();
   assert.equal(tools.size, 0);
 });

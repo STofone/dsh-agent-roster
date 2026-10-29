@@ -1,0 +1,23 @@
+{
+  "$schema": "../schema/registry.v1.schema.json",
+  "kind": "dsh-agent-roster-registry/v1",
+  "version": 1,
+  "generatedAt": "2026-10-30T00:00:00.000Z",
+  "generator": "STofone/dsh-agent-roster (hand-maintained; verified by .github/workflows/registry.yml)",
+  "source": "https://github.com/STofone/dsh-agent-roster",
+  "collections": [
+    {
+      "id": "agent-roster-examples",
+      "title": "官方起步档案集",
+      "description": "评审与调研两套起步档案，用来验证格式、桥接与核对链路；也可以直接复制成自己的档案。",
+      "repo": "github:STofone/dsh-agent-roster",
+      "ref": "main",
+      "path": "examples",
+      "rosters": ["core-review", "research"],
+      "tags": ["starter", "review", "research"],
+      "license": "MIT",
+      "maintainers": ["STofone"],
+      "homepage": "https://github.com/STofone/dsh-agent-roster#examples"
+    }
+  ]
+}

@@ -70,7 +70,7 @@ const config = {
 
 registerRosterTools(ctx, config, { version: "0.1.0" });
 
-assert.equal(registered.size, 4, `应注册 4 个工具，实际 ${[...registered.keys()].join(",")}`);
+assert.equal(registered.size, 5, `应注册 5 个工具，实际 ${[...registered.keys()].join(",")}`);
 
 /** 模拟工具执行上下文：会话工作区指向本仓库。 */
 const exec = { agent: { session: { header: { cwd: root } } }, signal: new AbortController().signal };
@@ -119,4 +119,4 @@ assert.equal(verified.summary.missing, verified.summary.members, "全部成员�
 for (const cleanup of cleanups) cleanup();
 assert.equal(registered.size, 0, "dispose 后不应残留工具");
 
-console.log("host smoke: 4 tools registered, lossless outputs, path override honored, dispose ok");
+console.log("host smoke: 5 tools registered, lossless outputs, path override honored, dispose ok");

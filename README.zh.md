@@ -22,7 +22,7 @@
 @stofone/dsh-agent-roster
 ```
 
-包内带 `cordis.patch.yml`，安装即把插件插进 profile。装好后应看到四个工具（`roster_list`、`roster_show`、`roster_create`、`roster_verify`）以及左侧栏里的 **Agent Roster** 面板（独立主面板，不再放设置页）。
+包内带 `cordis.patch.yml`，安装即把插件插进 profile。装好后应看到五个工具（`roster_list`、`roster_show`、`roster_create`、`roster_verify`、`roster_index`）以及左侧栏里的 **Agent Roster** 面板（独立主面板，不再放设置页）。
 
 ## 快速开始
 
@@ -156,8 +156,9 @@ npx dsh-agent-roster list
 | `roster_show` | 完整查看一份档案（或其中一名成员），含字段归宿 |
 | `roster_create` | 把成员翻译成 `agent_teams_add_member` 参数 / `plan.members` |
 | `roster_verify` | 与 `dsh-agent-teams` 的 `team.json` 比对；状态缺失时降级为「无法核对」 |
+| `roster_index` | 列出公共档案源（registry）的索引状态与 collection；给定 collection 时只读地拉下来看 |
 
-四个工具都不写团队状态。`roster_create` 只产出参数，真正的建员仍由模型调用 `agent_teams_add_member`。
+五个工具都不写团队状态。`roster_create` 只产出参数，真正的建员仍由模型调用 `agent_teams_add_member`。
 
 三个带路径的工具（`roster_list` / `roster_show` / `roster_create`）都接受 `path` 参数：给了就只看那个目录，不会悄悄回落到配置目录。
 
@@ -169,22 +170,40 @@ npx dsh-agent-roster list
 |---|---|
 | 档案 | 浏览每个工作区 × 每座档案库，展开成员；**新建 / 编辑 / 复制 / 删除 / 导入 / 导出**档案。编辑器有表单与源码两种模式（源码就是文件原文）；写之前由宿主校验，覆盖已有文件会留一份 `.bak` |
 | 团队 | 读一个配置好的状态目录（默认 `.agent-teams`），列出运行时真正建出来的每个团队：档案、成员档案与模型路由、每个持久化成员是否真的与其档案一致，以及该团队的任务 |
+| 档案源 | 列出订阅的公共 registry 目录，每个 collection 一个「拉取到本机」按钮；可展开先看里面有哪些档案 |
 | 体检 | 把「配置有没有指错」集中一处：目录解析到了哪、状态目录在不在、有多少声明未被确认，以及该改哪个设置 |
 
 顶部一条徽标汇总「有几件事需要处理」，体检页逐条说明。所有写操作都走 `POST /plugins/dsh-agent-roster/rosters`：宿主侧校验同源（`connection`）、JSON content-type、请求体大小上限与档案库根目录白名单，客户端不直接写文件。
 
 面板是中英双语，语言默认跟随 DSH，可在 **设置 → 插件 → Agent Roster** 里固定（同一节还有只读的配置摘要）。词典放在 `locale/` 由宿主提供，所以切 DSH 语言时面板无需刷新就会跟着变。
 
+## 公共档案源与一键拉取
+
+档案可以共享：把一份或多份档案放在 GitHub 仓库里，在 `index/registry.json` 登记成一个 **collection**，
+别人订阅后就能在面板里看到并一键拉到自己机器上。
+
+- **订阅方式**：设置里 `indexes` 填 `https://…/registry.json`，或 `npm:pkg`（从 npm 包的 `registry.json` 读）。
+  留空 = 只用官方源 `STofone/dsh-agent-roster` 的 `index/registry.json`；显式写 `false` 才彻底不连远端。
+- **多久更新一次**：TTL **一小时**——等于未认证 GitHub 的 60 次/小时配额。`?refresh=1`（或工具的 `refresh`）
+  可绕过缓存，但 60 秒内最多一次，避免把配额烧光。拉取失败时沿用上次缓存并在页面上写明「缓存（拉取失败）」。
+- **拉取到本机**：写入是幂等的，四种结果都会报给你——
+  `created`（新写入）、`updated`（显式覆盖）、`unchanged`（内容一致，不写盘）、`conflict`（本地不一样，**默认不覆盖**）。
+  冲突要你自己决定：要么在编辑器里合并，要么再点一次「拉取到本机」并在请求里带 `overwrite`。
+- **登记自己的档案**：在 `index/registry.json` 的 `collections` 里加一条（`id`、`repo: github:owner/repo`、
+  `ref`、`path`、`rosters[]`），提交 PR 即可；`.github/workflows/registry.yml` 会校验索引与仓库真实文件是否对得上。
+
 ## 路由
 
 | 路由 | 方法 | 用途 |
 |---|---|---|
-| `/plugins/dsh-agent-roster/library` | GET | 面板快照：工作区、档案库、档案、团队、提示、计数 |
+| `/plugins/dsh-agent-roster/library` | GET | 面板快照：工作区、档案库、档案、团队、提示、计数、远端源状态 |
 | `/plugins/dsh-agent-roster/document` | GET | 单份档案的原文与解析结果（编辑器用） |
 | `/plugins/dsh-agent-roster/rosters` | POST | 新建 / 更新 / 删除 / 导入 / 导出单份档案 |
+| `/plugins/dsh-agent-roster/collection` | GET | 拉取某个 collection 的档案内容（只读，不落盘） |
+| `/plugins/dsh-agent-roster/install` | POST | 把某个 collection 落盘到本机档案库（幂等，默认不覆盖） |
 | `/plugins/dsh-agent-roster/locale` | GET | 面板词典（`en` / `zh`） |
 
-四条都是 `exact` 路由，走宿主的 `connection` 围栏，方法不符返回 `405`。
+六条都是 `exact` 路由，走宿主的 `connection` 围栏，方法不符返回 `405`。
 
 ## 配置
 
@@ -194,8 +213,10 @@ npx dsh-agent-roster list
 | `knownToolPolicies` | `[]` | 部署已声明的 toolPolicy id；填了才做交叉校验 |
 | `agentTeamsStateDir` | `.agent-teams` | 只读：`roster_verify` 与「团队」页签在这里找团队状态 |
 | `language` | `"auto"` | 面板语言：`auto` 跟随 DSH，或固定 `zh` / `en` |
+| `indexes` | `[]` | 公共档案源：`https` 的 `registry.json` 或 `npm:pkg`。留空 = 官方源；显式 `false` = 只在本机库工作 |
+| `region` | `"auto"` | 下载区：`china` 时用腾讯 npm 镜像读 npm 形式的目录包；`auto` 等同 `global`（不自动探测，省一次出网） |
 
-四项都是 `volatile`：改完立即生效，无需重启。
+六项都是 `volatile`：改完立即生效，无需重启。
 
 ## 诊断
 
@@ -206,6 +227,7 @@ npx dsh-agent-roster list
 - 安全：`reserved-character`（`^`、`$`、`|`、花括号）、`forbidden-content`（提示注入特征）、`single-line-required`
 - 上限：`string-too-long`、`too-many-members`、`too-many-values`
 - 档案库级：`library-missing`、`library-unusable`、`missing-roster-file`、`multiple-roster-files`、`unexpected-file`、`unreadable-file`、`unreadable-dir`、`duplicate-roster-id`、`tool-policy-cross-check-skipped`
+- 远端源：`index-unreachable`、`index-invalid`、`index-refresh-throttled`、`index-source-invalid`、`collection-fetch-failed`、`collection-not-found`
 
 空档案库不是错误；目录不存在只算 info。`tool-policy-cross-check-skipped` **每座档案库只发一条**（不是每份档案一条）——没配 `knownToolPolicies` 是一件库级的事，按档案重复只会把一个事实放大成 n 行噪音。
 
@@ -217,13 +239,13 @@ npx dsh-agent-roster list
 
 ```bash
 npm install
-npm test          # node --test，153 个用例
+npm test          # node --test，162 个用例
 npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往返
 node scripts/check-locale.mjs   # client.js 里的静态 t() 键必须两本词典都有
 ```
 
 ```
-index.js          宿主半边：Config、apply、四条路由
+index.js          宿主半边：Config、apply、六条路由
 lib/              format / parse / validate / registry / bridge / verify / render / library /
                   config-view / json / http / write / service / teams-state / tools
 client.js         客户端半边：左侧栏图标 + 主面板（档案/团队/体检）+ 设置页小节
@@ -239,12 +261,12 @@ test/             单测
 
 本机已验证：
 
-- `npm test` —— 153/153 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、四条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束、声明层字段与队长段、schema 与常量对齐）。
-- `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册四个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
+- `npm test` —— 162/162 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、六条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束、声明层字段与队长段、schema 与常量对齐）。
+- `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册五个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
 - CLI：`validate --dir examples` 对两座示例库退出码 0。
 - 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目），重启后按链接读取本仓库文件。
 - 运行中的宿主已能应答只读路由：`GET /plugins/dsh-agent-roster/library` 返回 200，带插件版本与解析出的档案目录。
-- 另一个 agent 会话在工具清单里看到了四个工具，并实际调用了它们。
+- 另一个 agent 会话在工具清单里看到了五个工具，并实际调用了它们。
 - 左侧栏面板已在活页面里确认可见，并展示了真实档案。
 
 这一轮没验证到的：0.2.0 的管理界面（页签、编辑器、团队页、语言切换、`document` / `rosters` 路由）在活页面里的表现——这些改动要重启宿主才会被加载，重启后再验。

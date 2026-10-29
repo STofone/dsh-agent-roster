@@ -102,6 +102,9 @@ const CONFIG = {
   knownToolPolicies: [],
   agentTeamsStateDir: ".agent-teams",
   language: "auto",
+  // 路由测试不打网络：`false` 明确表示“只在本机库工作”（空数组会启用官方源）。
+  indexes: false,
+  region: "auto",
 };
 
 test("library：200 + 快照里能看到示例库的两份档案", async () => {
@@ -252,11 +255,50 @@ test("rosters：越界的 rootDir 不会被当成路径信任", async () => {
   assert.equal(outside.body.error.code, "unknown-root");
 });
 
-test("工具：apply() 之后四个工具都在注册表里", () => {
+test("install：缺 collection 是 400，未知 collection 是 404", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+
+  const missing = await call(host, "/plugins/dsh-agent-roster/install", makeReq({ method: "POST", body: {} }));
+  assert.equal(missing.status, 400);
+  assert.equal(missing.body.error.code, "missing-collection");
+
+  const unknown = await call(
+    host,
+    "/plugins/dsh-agent-roster/install",
+    makeReq({ method: "POST", body: { collection: "no-such" } }),
+  );
+  // `indexes: false` 时没有远端源，任何 collection 都应当是“找不到”，而不是去猜。
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.body.error.code, "collection-not-found");
+});
+
+test("install：GET 是 405", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+  const result = await call(host, "/plugins/dsh-agent-roster/install", makeReq());
+  assert.equal(result.status, 405);
+  assert.equal(result.headers.get("allow"), "POST");
+});
+
+test("collection：没有远端源时明确 404 并列出已知项", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+  const result = await call(
+    host,
+    "/plugins/dsh-agent-roster/collection",
+    makeReq({ url: "/plugins/dsh-agent-roster/collection?id=demo" }),
+  );
+  assert.equal(result.status, 404);
+  assert.equal(result.body.error.code, "collection-not-found");
+  assert.deepEqual(result.body.known, []);
+});
+
+test("工具：apply() 之后五个工具都在注册表里", () => {
   const host = makeHost();
   apply(host.ctx, CONFIG);
   assert.deepEqual(
     [...host.tools.keys()].sort(),
-    ["roster_create", "roster_list", "roster_show", "roster_verify"],
+    ["roster_create", "roster_index", "roster_list", "roster_show", "roster_verify"],
   );
 });

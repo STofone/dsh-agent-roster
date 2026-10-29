@@ -2,6 +2,25 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.5.0] - 2026-10-29
+
+### Added
+
+- **公共档案源（registry）**：`indexes` 配置订阅 `https` 的 `registry.json` 或 `npm:pkg`；默认只有官方源
+  `STofone/dsh-agent-roster` 的 `index/registry.json`。索引按 **TTL 一小时** 缓存（等于未认证 GitHub 的
+  60 次/小时配额），`refresh=1` 才绕过缓存且有 60 秒最短间隔；网络失败沿用上次缓存并说明原因，
+  不会把「没拉到」显示成「没有档案」。
+- **一键拉取到本机**：面板新增「档案源」页签，列出每个 collection 的标题、仓库、登记份数与上次拉取时间，
+  点「拉取到本机」把整目录写进全局档案库。写入是幂等的：内容相同跳过、本地改过默认**不覆盖**并报冲突数，
+  只有显式 `overwrite` 才替换。对应 `POST /plugins/dsh-agent-roster/install`。
+- 第 5 个工具 `roster_index`：列出索引源状态与 collection；给定 `collection` 时只读地把那套档案拉下来看。
+- `lib/serialize.js`：把已校验档案还原成落盘 JSON（只写语义字段，不带 `inherited`/`origin`/`file` 之类副产物）。
+- `.github/workflows/registry.yml`：校验 `index/registry.json`、比对仓库真实文件、跑测试。
+
+### Fixed
+
+- `indexes: []` 现在明确表示「用官方源」——此前空数组会被当成「没有源」，装上插件后档案源页签就是空的。
+
 ## [0.4.0] - 2026-10-29
 
 ### Added

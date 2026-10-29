@@ -24,7 +24,7 @@ From the plugin manager, point it at this repository (absolute path) or at the p
 @stofone/dsh-agent-roster
 ```
 
-The bundle ships `cordis.patch.yml`, so installing it inserts the plugin into the profile automatically. After install you should see four tools (`roster_list`, `roster_show`, `roster_create`, `roster_verify`) and an **Agent Roster** entry in the left sidebar (a full main panel, not a Settings section).
+The bundle ships `cordis.patch.yml`, so installing it inserts the plugin into the profile automatically. After install you should see five tools (`roster_list`, `roster_show`, `roster_create`, `roster_verify`, `roster_index`) and an **Agent Roster** entry in the left sidebar (a full main panel, not a Settings section).
 
 ## Quick start
 
@@ -160,8 +160,9 @@ Making it real means editing the profile's `cordis.patch.yml` and the agent pres
 | `roster_show` | show one roster (or one member) in full, including bridge field classes |
 | `roster_create` | translate members into `agent_teams_add_member` arguments / `plan.members` |
 | `roster_verify` | compare a roster against `dsh-agent-teams`' `team.json`; degrades to "cannot verify" when state is absent |
+| `roster_index` | list registry sources and their collections; given a collection, fetch it read-only for inspection |
 
-All four are read-only with respect to team state. `roster_create` only produces arguments — the model still has to call `agent_teams_add_member` itself.
+All five are read-only with respect to team state. `roster_create` only produces arguments — the model still has to call `agent_teams_add_member` itself.
 
 `roster_list`, `roster_show`, `roster_create` and `roster_verify` all accept a `path` argument: when given, it is the library root, with no silent fallback to the configured directory.
 
@@ -173,22 +174,42 @@ The client plugin adds an **Agent Roster** entry to the left sidebar: one row in
 |---|---|
 | Rosters | browse every workspace × library, expand members, and **create / edit / duplicate / delete / import / export** rosters. The editor has a form mode and a source mode (the file as-is); the host validates before writing and keeps a `.bak` next to an overwritten file |
 | Teams | read one configured state directory (`.agent-teams` by default) and see every team the runtime created: profile, member profiles and model routes, whether each persisted member really matches its roster, plus the team's tasks |
+| Sources | the subscribed registry directories; each collection has a **Pull to this machine** button, and can be expanded to inspect its rosters first |
 | Health | the "configuration points somewhere wrong" questions in one place: which directories resolved, whether the state directory exists, how many declarations are unconfirmed, and what to change |
 
 A badge at the top summarises how many items need attention; the Health tab explains each one. All write operations go through `POST /plugins/dsh-agent-roster/rosters`, which enforces same-origin (`connection`), a JSON content type, a body-size cap and a library-root whitelist — the client never writes files itself.
 
 The panel is bilingual. Its language defaults to the DSH language and can be pinned in **Settings → Plugins → Agent Roster** (the same section shows a read-only summary of the configuration). Both the panel and the host-side texts are translated; dictionaries live in `locale/` and are served by the host, so switching the DSH language re-renders the panel without a reload.
 
+## Public registry and one-click pull
+
+Rosters can be shared: keep one or more of them in a GitHub repository, register them as a **collection** in that
+repository's `index/registry.json`, and anyone who subscribes can see them in the panel and pull them locally.
+
+- **Subscribing**: set `indexes` to an `https://…/registry.json` URL or `npm:pkg` (reads `registry.json` from the
+  package). Empty means the official source, `STofone/dsh-agent-roster`'s `index/registry.json`; an explicit `false`
+  is the only way to disable remote sources entirely.
+- **How often it refreshes**: TTL **one hour** — that is the unauthenticated GitHub budget of 60 requests/hour.
+  `?refresh=1` (or the tools' `refresh`) bypasses the cache, throttled to one try per 60 seconds so the quota is not
+  burned. On failure the last cached index is reused and labelled "cached (fetch failed)" in the panel.
+- **Pulling**: writes are idempotent and report one of `created`, `updated` (explicit overwrite), `unchanged`
+  (same content, nothing written) or `conflict` (the local copy differs and is **not** overwritten by default).
+  Conflicts are yours to resolve: merge in the editor, or pull again with `overwrite` in the request body.
+- **Publishing your own**: add an entry to `collections` in `index/registry.json` (`id`, `repo: github:owner/repo`,
+  `ref`, `path`, `rosters[]`) and open a PR. `.github/workflows/registry.yml` checks the index against the real files.
+
 ## Routes
 
 | Route | Method | Purpose |
 |---|---|---|
-| `/plugins/dsh-agent-roster/library` | GET | panel snapshot: libraries, rosters, teams, hints, counts |
+| `/plugins/dsh-agent-roster/library` | GET | panel snapshot: libraries, rosters, teams, hints, counts, remote sources |
 | `/plugins/dsh-agent-roster/document` | GET | one roster's raw text plus its parsed form (editor) |
 | `/plugins/dsh-agent-roster/rosters` | POST | create / update / delete / import / export one roster |
+| `/plugins/dsh-agent-roster/collection` | GET | fetch one collection's rosters read-only (nothing is written) |
+| `/plugins/dsh-agent-roster/install` | POST | write one collection into the local library (idempotent, no overwrite by default) |
 | `/plugins/dsh-agent-roster/locale` | GET | `en` / `zh` dictionary for the panel |
 
-All four are `exact` routes behind the host's `connection` fence and answer `405` for other methods.
+All six are `exact` routes behind the host's `connection` fence and answer `405` for other methods.
 
 ## Configuration
 
@@ -198,8 +219,10 @@ All four are `exact` routes behind the host's `connection` fence and answer `405
 | `knownToolPolicies` | `[]` | tool-policy ids declared by your deployment; enables cross-checks |
 | `agentTeamsStateDir` | `.agent-teams` | read only: where `roster_verify` and the Teams tab look for team state |
 | `language` | `"auto"` | panel language: `auto` follows DSH, or pin `zh` / `en` |
+| `indexes` | `[]` | public registry sources: an `https` `registry.json` or `npm:pkg`. Empty means the official source; `false` means local-only |
+| `region` | `"auto"` | download region: `china` reads npm-style index packages from the Tencent mirror; `auto` equals `global` (no probing, one less request) |
 
-All four are `volatile`: changes apply immediately, no host restart.
+All six are `volatile`: changes apply immediately, no host restart.
 
 ## Diagnostics
 
@@ -210,6 +233,7 @@ Validation reports errors, warnings and infos with `file`, `path` and `reason`. 
 - safety: `reserved-character` (`^`, `$`, `|`, braces), `forbidden-content` (prompt-injection patterns), `single-line-required`
 - limits: `string-too-long`, `too-many-members`, `too-many-values`
 - library level: `library-missing`, `library-unusable`, `missing-roster-file`, `multiple-roster-files`, `unexpected-file`, `unreadable-file`, `unreadable-dir`, `duplicate-roster-id`, `tool-policy-cross-check-skipped`
+- remote sources: `index-unreachable`, `index-invalid`, `index-refresh-throttled`, `index-source-invalid`, `collection-fetch-failed`, `collection-not-found`
 
 An empty library is not an error. A missing one is reported as info, not error. `tool-policy-cross-check-skipped` is emitted **once per library** (not once per roster) when no `knownToolPolicies` are configured — a per-roster warning would turn one fact into n lines of noise.
 
@@ -221,7 +245,7 @@ An empty library is not an error. A missing one is reported as info, not error. 
 
 ```bash
 npm install
-npm test          # node --test, 153 cases
+npm test          # node --test, 162 cases
 npm run smoke     # registers the tools against a real DSH bundle, asserts lossless output
 node scripts/check-locale.mjs   # static t() keys must exist in both dictionaries
 ```
@@ -229,7 +253,7 @@ node scripts/check-locale.mjs   # static t() keys must exist in both dictionarie
 Layout:
 
 ```
-index.js          host plugin: Config, apply, four routes
+index.js          host plugin: Config, apply, six routes
 lib/              format, parse, validate, registry, bridge, verify, render, library,
                   config-view, json, http, write, service, teams-state, tools
 client.js         client plugin: sidebar entry, main panel (rosters/teams/health), settings section
@@ -245,12 +269,12 @@ test/             unit tests
 
 Verified on this machine:
 
-- `npm test` — 153/153 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, the four routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment).
-- `npm run smoke` — `apply()` registers all four tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
+- `npm test` — 162/162 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, all routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment, remote registry and one-click install).
+- `npm run smoke` — `apply()` registers all five tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
 - CLI: `validate --dir examples` returns exit 0 over both example libraries.
 - Installed into a real profile with the plugin manager (`plugin_manager install_bundle` against this directory → `link:` dependency + bundle entry); the profile re-reads the linked files on restart.
 - The read-only route answered from the running host: `GET /plugins/dsh-agent-roster/library` → 200 with the plugin version and resolved rosters.
-- A second agent session saw all four tools in its tool list and called them.
+- A second agent session saw all five tools in its tool list and called them.
 - The sidebar panel was confirmed visible with real roster data.
 
 Not verified in this pass: the 0.2.0 management UI (tabs, editors, Teams view, language switch, `document` / `rosters` routes) inside a live page — those need a host restart to load the new modules, and are verified after it.

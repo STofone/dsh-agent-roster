@@ -45,7 +45,8 @@
     "bannerOne": "有 1 项待处理",
     "bannerMany": "有 {count} 项待处理",
     "bannerCta": "查看体检",
-    "workspaceFallback": "还没有注册工作区，暂时按进程所在目录读取。"
+    "workspaceFallback": "还没有注册工作区，暂时按进程所在目录读取。",
+    "tabsSources": "档案源"
   },
   "roster": {
     "members": "{count} 名成员",
@@ -222,6 +223,23 @@
   "misc": {
     "copied": "已复制",
     "yes": "是",
-    "no": "否"
+    "no": "否",
+    "failed": "操作失败"
+  },
+  "source": {
+    "tabsSources": "档案源",
+    "pull": "拉取到本机",
+    "pulling": "拉取中…",
+    "pulled": "写入 {written} 份，未变 {unchanged} 份，冲突 {conflicts} 份",
+    "empty": "还没有配置公共档案源。",
+    "emptyHint": "在插件设置里填一个 https 的 registry 地址，或 npm:pkg。",
+    "stale": "缓存（拉取失败）",
+    "fetchedAt": "上次拉取 {when}",
+    "registered": "登记 {count} 份",
+    "open": "展开查看",
+    "hide": "收起",
+    "loading": "正在读取档案…",
+    "repo": "仓库",
+    "conflictHint": "本地版本与远端不同，未覆盖。"
   }
 }

@@ -1,0 +1,45 @@
+name: registry
+
+# 索引不靠人肉维护数字：每次 index/ 或 examples/ 变动，都用插件自己的校验器重算一遍。
+# - 每份被登记的档案必须真的存在、能过校验（索引不撒谎）
+# - roster 列表由仓库实际内容重算，提交者只需写“这个 collection 在哪”
+# - generatedAt 由 CI 盖章，评审时能看到索引是什么时候验过的
+
+on:
+  push:
+    paths:
+      - "index/registry.json"
+      - "examples/**"
+      - "bin/**"
+      - "lib/**"
+  pull_request:
+    paths:
+      - "index/registry.json"
+      - "examples/**"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --omit=dev || npm install --omit=dev
+
+      - name: 校验索引格式
+        run: node bin/cli.mjs registry validate --file index/registry.json
+
+      - name: 校验每条 collection 真的能取到
+        run: node bin/cli.mjs registry fetch --file index/registry.json --local-only
+
+      - name: 重算 roster 列表并盖章
+        run: |
+          node bin/cli.mjs registry sync --file index/registry.json --write
+          git diff --exit-code index/registry.json || {
+            echo "::notice::registry.json 已被重算，请把改动一起提交";
+          }
+
+      - name: 单测
+        run: node --test

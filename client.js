@@ -31,6 +31,8 @@ window.__ModuleLoader__.load({
     const LOCALE_ROUTE = "/plugins/dsh-agent-roster/locale";
     const DOCUMENT_ROUTE = "/plugins/dsh-agent-roster/document";
     const ROSTERS_ROUTE = "/plugins/dsh-agent-roster/rosters";
+    const INSTALL_ROUTE = "/plugins/dsh-agent-roster/install";
+    const COLLECTION_ROUTE = "/plugins/dsh-agent-roster/collection";
 
     const EFFORTS = ["low", "medium", "high", "default"];
     const LANGUAGES = ["auto", "zh", "en"];
@@ -1181,6 +1183,7 @@ window.__ModuleLoader__.load({
         [
           ["rosters", t("panel.tabsRosters"), rosters.length],
           ["teams", t("panel.tabsTeams"), teams.length],
+          ["sources", t("panel.tabsSources"), snapshot?.remote?.collections?.length ?? 0],
           // 只有真正要用户处理的问题才计数：info 只是说明，不该在页签上挂数字。
           ["health", t("panel.tabsDiagnostics"), attention],
         ].map(([value, label, count]) =>
@@ -1249,6 +1252,14 @@ window.__ModuleLoader__.load({
             : h("div", { className: "rstr-cards" }, teams.map((team) => h(TeamCard, { key: team.id, team })));
       }
 
+      if (tab === "sources") {
+        content = h(SourcesTab, {
+          remote: snapshot?.remote ?? null,
+          onToast: setToast,
+          onPulled: () => library.reload(),
+        });
+      }
+
       if (tab === "health") {
         content = h(HealthTab, { snapshot });
       }
@@ -1312,6 +1323,157 @@ window.__ModuleLoader__.load({
               },
             })
           : null,
+      );
+    }
+
+    /**
+     * 公共档案源：列出订阅的 registry 目录，逐个提供「拉取到本机」。
+     *
+     * 拉取是**显式动作**：后端按内容比对，相同的跳过、不同的默认不覆盖（会把冲突数报回来）。
+     * 前端不做这份判断——它只把结果说清楚，避免"点一下按钮，本地改动就没了"。
+     */
+    function SourcesTab({ remote, onToast, onPulled }) {
+      useTranslation();
+      const [pulling, setPulling] = useState("");
+      const [openId, setOpenId] = useState("");
+      const [detail, setDetail] = useState(null);
+
+      const collections = remote?.collections ?? [];
+      const indexes = remote?.indexes ?? [];
+      const problems = (remote?.diagnostics ?? []).filter((item) => item.severity !== "info");
+
+      async function pull(collection) {
+        setPulling(collection.id);
+        try {
+          const result = await readJson(INSTALL_ROUTE, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ collection: collection.id }),
+          });
+          if (!result.ok || result.body === null) {
+            onToast(`${t("misc.failed")} (${String(result.status)})`);
+            return;
+          }
+          const body = result.body;
+          const summary = t("source.pulled", {
+            written: body.written ?? 0,
+            unchanged: body.unchanged ?? 0,
+            conflicts: body.conflicts ?? 0,
+          });
+          onToast(body.conflicts > 0 ? `${summary} · ${t("source.conflictHint")}` : summary);
+          onPulled();
+        } catch {
+          onToast(t("misc.failed"));
+        } finally {
+          setPulling("");
+        }
+      }
+
+      async function toggle(collection) {
+        if (openId === collection.id) {
+          setOpenId("");
+          setDetail(null);
+          return;
+        }
+        setOpenId(collection.id);
+        setDetail({ id: collection.id, status: "loading", body: null });
+        const query = new URLSearchParams({ id: collection.id });
+        if (collection.origin?.source !== undefined) query.set("source", collection.origin.source);
+        const result = await readJson(`${COLLECTION_ROUTE}?${query.toString()}`);
+        if (result.ok && result.body !== null) {
+          setDetail({ id: collection.id, status: "ready", body: result.body });
+        } else {
+          setDetail({ id: collection.id, status: "error", body: null });
+        }
+      }
+
+      if (collections.length === 0) {
+        return h(
+          "div",
+          null,
+          h(EmptyState, { title: t("source.empty"), body: t("source.emptyHint") }),
+          problems.length > 0 ? h(DiagnosticList, { items: problems }) : null,
+        );
+      }
+
+      return h(
+        "div",
+        { className: "rstr-sources" },
+        indexes.length > 0
+          ? h(
+              "p",
+              { className: "rstr-muted rstr-small" },
+              indexes
+                .map((index) =>
+                  `${index.label} · ${index.stale ? t("source.stale") : t("source.fetchedAt", { when: index.fetchedAt ?? "-" })}`,
+                )
+                .join("   "),
+            )
+          : null,
+        h(
+          "div",
+          { className: "rstr-cards" },
+          collections.map((collection) =>
+            h(
+              "article",
+              { key: `${collection.origin?.source ?? ""}::${collection.id}`, className: "rstr-card" },
+              h(
+                "header",
+                { className: "rstr-card-head" },
+                h("h3", { className: "rstr-card-title" }, collection.title || collection.id),
+                h(Badge, { tone: "neutral" }, t("source.registered", { count: collection.rosters?.length ?? 0 })),
+              ),
+              collection.description ? h("p", { className: "rstr-card-desc" }, collection.description) : null,
+              h(
+                "p",
+                { className: "rstr-muted rstr-small" },
+                `${t("source.repo")} ${collection.repo ?? ""}@${collection.ref ?? "main"}${collection.path ? `/${collection.path}` : ""}`,
+              ),
+              h(
+                "div",
+                { className: "rstr-card-actions" },
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    className: "rstr-btn rstr-btn-primary",
+                    disabled: pulling !== "",
+                    onClick: () => pull(collection),
+                  },
+                  pulling === collection.id ? t("source.pulling") : t("source.pull"),
+                ),
+                h(
+                  "button",
+                  { type: "button", className: "rstr-btn", onClick: () => toggle(collection) },
+                  openId === collection.id ? t("source.hide") : t("source.open"),
+                ),
+              ),
+              openId === collection.id
+                ? detail === null || detail.status === "loading"
+                  ? h("p", { className: "rstr-muted" }, t("source.loading"))
+                  : detail.status === "error"
+                    ? h("p", { className: "rstr-muted" }, t("misc.failed"))
+                    : h(
+                        "div",
+                        { className: "rstr-source-detail" },
+                        (detail.body?.rosters ?? []).map((roster) =>
+                          h(
+                            "div",
+                            { key: roster.id, className: "rstr-source-roster" },
+                            h("span", { className: "rstr-mono" }, roster.id),
+                            h("span", { className: "rstr-muted" }, roster.title ?? ""),
+                            h(Badge, { tone: "neutral" }, `${(roster.members ?? []).length}`),
+                          ),
+                        ),
+                        (detail.body?.diagnostics ?? []).length > 0
+                          ? h(DiagnosticList, { items: detail.body.diagnostics })
+                          : null,
+                      )
+                : null,
+            ),
+          ),
+        ),
+        problems.length > 0 ? h(DiagnosticList, { items: problems }) : null,
       );
     }
 
@@ -1553,6 +1715,10 @@ window.__ModuleLoader__.load({
 .rstr-card-title { margin: 4px 0 2px; font-size: 15px; font-weight: 600; color: var(--dsw-alias-label-primary); }
 .rstr-card-meta { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .rstr-card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.rstr-sources { display: flex; flex-direction: column; gap: 10px; }
+.rstr-source-detail { display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--dsw-alias-border-l1); padding-top: 8px; }
+.rstr-source-roster { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+.rstr-source-roster > .rstr-muted { flex: 1 1 auto; }
 .rstr-ok { color: var(--dsw-alias-label-secondary); font-weight: 600; }
 
 .rstr-chip { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--dsw-alias-button-ghost-active-fill); color: var(--dsw-alias-label-secondary); }

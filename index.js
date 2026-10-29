@@ -21,7 +21,8 @@ import { collectLibrary } from "./lib/library.js";
 import { parseDocumentText } from "./lib/parse.js";
 import { validateRoster } from "./lib/validate.js";
 import { sendError, sendJson, createAuthGate, readJsonBody, requireMethod } from "./lib/http.js";
-import { buildPanelSnapshot, resolveRoots } from "./lib/service.js";
+import { buildPanelSnapshot, installCollection, loadRemotePanel, resolveRoots } from "./lib/service.js";
+import { fetchCollection } from "./lib/remote.js";
 import { registerRosterTools } from "./lib/tools.js";
 import { deleteRosterDocument, readRosterDocument, writeRosterDocument } from "./lib/write.js";
 
@@ -64,6 +65,20 @@ export const Config = z.object({
     .default("auto")
     .description("面板与设置项的语言：auto 跟随 DSH 当前语言，zh/en 固定中文或英文。")
     .volatile(),
+  indexes: z
+    .array(z.string())
+    .default([])
+    .description(
+      "公共档案源（registry）列表，可填 https URL 或 npm:pkg。留空 = 只用官方源 " +
+        "STofone/dsh-agent-roster 的 index/registry.json。拉取按 TTL 缓存（默认一小时一次），" +
+        "网络失败时沿用上次缓存，不会把“没拉到”当成“没有档案”。",
+    )
+    .volatile(),
+  region: z
+    .union([z.const("auto"), z.const("global"), z.const("china")])
+    .default("auto")
+    .description("下载区：china 用腾讯 npm 镜像读 npm 形式的目录包；auto 等同 global（不自动探测，避免额外的出网请求）。")
+    .volatile(),
 });
 
 /**
@@ -92,9 +107,51 @@ export function apply(ctx, config) {
       async (req, res) => {
         if (guard(req, res)) return;
         if (!requireMethod(req, res, "GET")) return;
-        sendJson(res, 200, buildPanelSnapshot(ctx, settings, { name: pkg.name, version: pkg.version }));
+        const snapshot = buildPanelSnapshot(ctx, settings, { name: pkg.name, version: pkg.version });
+        const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+        // 远程源是“附属信息”：拉不到也不能让本地档案库的响应失败，所以失败只体现在 remote.diagnostics 里。
+        const remote = await loadRemotePanel(settings, { refresh: query.get("refresh") === "1" });
+        sendJson(res, 200, { ...snapshot, remote });
       },
       "library route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/collection",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "GET")) return;
+        const query = new URL(req.url ?? "/", "http://localhost").searchParams;
+        const id = query.get("id") ?? "";
+        const source = query.get("source") ?? "";
+        const remote = await loadRemotePanel(settings, { refresh: query.get("refresh") === "1" });
+        const collection = remote.collections.find(
+          (item) => item.id === id && (source === "" || item.origin?.source === source),
+        );
+        if (collection === undefined) {
+          sendJson(res, 404, { ok: false, error: { code: "collection-not-found" }, known: remote.collections.map((item) => item.id) });
+          return;
+        }
+        const fetched = await fetchCollection(collection);
+        sendJson(res, 200, {
+          ok: fetched.diagnostics.every((item) => item.severity !== "error"),
+          collection: {
+            id: collection.id,
+            title: collection.title,
+            description: collection.description,
+            repo: collection.repo,
+            ref: collection.ref,
+            path: collection.path,
+            rosters: collection.rosters,
+            license: collection.license,
+            homepage: collection.homepage,
+            origin: collection.origin,
+          },
+          rosters: fetched.rosters,
+          diagnostics: fetched.diagnostics,
+        });
+      },
+      "collection route",
     );
 
     register(
@@ -145,6 +202,40 @@ export function apply(ctx, config) {
         });
       },
       "document route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/install",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "POST")) return;
+        const body = await readJsonBody(req);
+        if (!body.ok) {
+          sendError(res, body.status, body.code);
+          return;
+        }
+        const input = body.value !== null && typeof body.value === "object" ? body.value : {};
+        if (typeof input.collection !== "string" || input.collection === "") {
+          sendError(res, 400, "missing-collection");
+          return;
+        }
+        const result = await installCollection(settings, {
+          collectionId: input.collection,
+          source: typeof input.source === "string" && input.source !== "" ? input.source : undefined,
+          overwrite: input.overwrite === true,
+        });
+        if (result.ok !== true && result.code !== undefined) {
+          sendJson(res, result.code === "collection-not-found" ? 404 : 400, {
+            ok: false,
+            error: { code: result.code },
+            known: result.known ?? [],
+            diagnostics: result.diagnostics ?? [],
+          });
+          return;
+        }
+        sendJson(res, 200, result);
+      },
+      "install route",
     );
 
     register(

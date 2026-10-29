@@ -45,7 +45,8 @@
     "bannerOne": "1 thing needs attention",
     "bannerMany": "{count} things need attention",
     "bannerCta": "Open health",
-    "workspaceFallback": "No workspace is registered yet; reading the process directory instead."
+    "workspaceFallback": "No workspace is registered yet; reading the process directory instead.",
+    "tabsSources": "Sources"
   },
   "roster": {
     "members": "{count} members",
@@ -222,6 +223,23 @@
   "misc": {
     "copied": "Copied",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "failed": "Failed"
+  },
+  "source": {
+    "tabsSources": "Sources",
+    "pull": "Pull to this machine",
+    "pulling": "Pulling…",
+    "pulled": "Pulled {written}, unchanged {unchanged}, conflicts {conflicts}",
+    "empty": "No index source is configured.",
+    "emptyHint": "Add an https registry URL or an npm:pkg in the plugin settings.",
+    "stale": "cached (fetch failed)",
+    "fetchedAt": "Fetched {when}",
+    "registered": "{count} registered",
+    "open": "Show rosters",
+    "hide": "Hide rosters",
+    "loading": "Loading rosters…",
+    "repo": "Repository",
+    "conflictHint": "Local versions differ; nothing was overwritten."
   }
 }
