@@ -42,6 +42,8 @@ function makeHost(services = {}) {
       if (name in services) return services[name];
       if (name in services) return services[name];
       if (name in services) return services[name];
+      if (name in services) return services[name];
+      if (name in services) return services[name];
       if (name === "workspaceRegistry") return { list: () => [{ title: "test", path: root }] };
       return undefined;
     },

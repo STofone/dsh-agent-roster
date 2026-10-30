@@ -94,7 +94,7 @@ export function apply(ctx, config) {
   const settings = configView(config);
 
   registerRosterTools(ctx, settings, { version: pkg.version });
-  ctx.logger?.info?.(`dsh-agent-roster ${pkg.version}: registered 4 tools`);
+  ctx.logger?.info?.(`dsh-agent-roster ${pkg.version}: registered 5 tools`);
 
   // 面板路由：读快照 / 读单份档案原文 / 保存 / 删除 / 导入。
   // 没有 webServer 也不影响工具可用性。
