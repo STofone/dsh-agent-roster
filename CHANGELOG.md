@@ -19,6 +19,9 @@
 - Panel: captain card inside each archive with the declared routing, the four-state checks and an
   "apply" row (existing session / new session + optional working directory).
 - Locale dictionary gained the `captain` section in both languages.
+- The panel fills the whole page (no `max-width` on the outer container) and the archive
+  list gains a tag pool on the left: every tag in the library with its count, multi-select
+  narrows with AND semantics, one click clears.
 
 ## [0.5.1] - 2026-10-29
 

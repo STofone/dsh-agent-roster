@@ -1218,6 +1218,7 @@ window.__ModuleLoader__.load({
       const library = useLibrary();
       const [tab, setTab] = useState("rosters");
       const [query, setQuery] = useState("");
+      const [selectedTags, setSelectedTags] = useState(() => new Set());
       const [editor, setEditor] = useState(null);
       const [importing, setImporting] = useState(false);
       const [removing, setRemoving] = useState(null);
@@ -1231,17 +1232,47 @@ window.__ModuleLoader__.load({
 
       const snapshot = library.data;
       const rosters = useMemo(() => {
-        const all = snapshot?.workspaces?.flatMap((workspace) =>
+        return snapshot?.workspaces?.flatMap((workspace) =>
           (workspace.rosters ?? []).map((roster) => ({ ...roster, rootDir: workspace.rootDir })),
         ) ?? [];
+      }, [snapshot]);
+
+      // 标签池：整个库出现过的标签 + 各标签档案数，按出现次数降序（同数按字母）。
+      const tagPool = useMemo(() => {
+        const counts = new Map();
+        for (const roster of rosters) {
+          for (const tag of roster.tags ?? []) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+        }
+        return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+      }, [rosters]);
+
+      const filtered = useMemo(() => {
         const needle = query.trim().toLowerCase();
-        if (needle === "") return all;
-        return all.filter((roster) =>
-          [roster.id, roster.title, roster.description, ...(roster.tags ?? []), ...(roster.members ?? []).map((member) => member.name)]
+        return rosters.filter((roster) => {
+          if (selectedTags.size > 0) {
+            const tags = roster.tags ?? [];
+            // 多选是“且”：勾了 revision 和 testing，就只看同时带这两个标签的档案。
+            for (const tag of selectedTags) if (!tags.includes(tag)) return false;
+          }
+          if (needle === "") return true;
+          return [roster.id, roster.title, roster.description, ...(roster.tags ?? []), ...(roster.members ?? []).map((member) => member.name)]
             .filter((value) => typeof value === "string")
-            .some((value) => value.toLowerCase().includes(needle)),
-        );
-      }, [snapshot, query]);
+            .some((value) => value.toLowerCase().includes(needle));
+        });
+      }, [rosters, query, selectedTags]);
+
+      function toggleTag(tag) {
+        setSelectedTags((current) => {
+          const next = new Set(current);
+          if (next.has(tag)) next.delete(tag);
+          else next.add(tag);
+          return next;
+        });
+      }
+
+      function clearTags() {
+        setSelectedTags(() => new Set());
+      }
 
       const teams = snapshot?.teams?.teams ?? [];
       const hints = snapshot?.hints ?? [];
@@ -1365,20 +1396,53 @@ window.__ModuleLoader__.load({
         } else {
           content = h(
             "div",
-            null,
-            h("input", {
-              className: "rstr-input rstr-search",
-              value: query,
-              placeholder: t("panel.searchPlaceholder"),
-              "aria-label": t("panel.search"),
-              onChange: (event) => setQuery(event.target.value),
-            }),
-            rosters.length === 0
-              ? h("p", { className: "rstr-muted" }, t("panel.noMatch"))
-              : h(
-                  "div",
-                  { className: "rstr-cards" },
-                  rosters.map((roster) =>
+            { className: "rstr-rosters" },
+            h("aside", { className: "rstr-tagpool", "aria-label": t("panel.tagPool") }, [
+              h("span", { className: "rstr-tagpool-title" }, t("panel.tagPool")),
+              tagPool.length === 0
+                ? h("p", { className: "rstr-muted rstr-small" }, t("panel.tagPoolEmpty"))
+                : h(
+                    "div",
+                    { className: "rstr-tagpool-list" },
+                    tagPool.map(([tag, count]) =>
+                      h(
+                        "button",
+                        {
+                          key: tag,
+                          type: "button",
+                          className: `rstr-tag${selectedTags.has(tag) ? " rstr-tag-on" : ""}`,
+                          "aria-pressed": selectedTags.has(tag),
+                          onClick: () => toggleTag(tag),
+                        },
+                        h("span", { className: "rstr-tag-name" }, tag),
+                        h("span", { className: "rstr-tag-count" }, String(count)),
+                      ),
+                    ),
+                  ),
+              selectedTags.size === 0
+                ? null
+                : h(
+                    "button",
+                    { type: "button", className: "rstr-btn rstr-btn-sm rstr-tag-clear", onClick: clearTags },
+                    t("panel.tagClear"),
+                  ),
+            ]),
+            h(
+              "div",
+              { className: "rstr-rosters-main" },
+              h("input", {
+                className: "rstr-input rstr-search",
+                value: query,
+                placeholder: t("panel.searchPlaceholder"),
+                "aria-label": t("panel.search"),
+                onChange: (event) => setQuery(event.target.value),
+              }),
+              filtered.length === 0
+                ? h("p", { className: "rstr-muted" }, t("panel.noMatch"))
+                : h(
+                    "div",
+                    { className: "rstr-cards" },
+                    filtered.map((roster) =>
                     h(RosterCard, {
                       key: `${roster.rootDir}::${roster.id}`,
                       roster,
@@ -1394,7 +1458,8 @@ window.__ModuleLoader__.load({
                       onCopy: copyPayload,
                     }),
                   ),
-                ),
+              ),
+            ),
           );
         }
       }
@@ -1822,7 +1887,7 @@ window.__ModuleLoader__.load({
      * 文本色一律显式给出（不用 inherit），避免继承到与背景同色的文本。
      */
     const CSS = `
-.rstr-page { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 32px; max-width: 1120px; margin: 0 auto; color: var(--dsw-alias-label-primary); font-size: 14px; line-height: 1.55; }
+.rstr-page { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px 32px; width: 100%; box-sizing: border-box; color: var(--dsw-alias-label-primary); font-size: 14px; line-height: 1.55; }
 .rstr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .rstr-h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--dsw-alias-label-primary); }
 .rstr-muted { color: var(--dsw-alias-label-secondary); margin: 0; }
@@ -1862,7 +1927,19 @@ window.__ModuleLoader__.load({
 .rstr-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 600; }
 .rstr-tab-count { font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--dsw-alias-button-ghost-active-fill); color: var(--dsw-alias-label-secondary); }
 
-.rstr-cards { display: grid; gap: 12px; }
+.rstr-rosters { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .rstr-rosters { grid-template-columns: minmax(0, 1fr); } }
+.rstr-tagpool { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; background: var(--dsw-alias-bg-layer-2); position: sticky; top: 12px; }
+.rstr-tagpool-title { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
+.rstr-tagpool-list { display: flex; flex-direction: column; gap: 4px; }
+.rstr-tag { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 6px; padding: 4px 8px; font-size: 12px; font-family: inherit; cursor: pointer; text-align: left; }
+.rstr-tag:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.rstr-tag:focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }
+.rstr-tag-on { background: var(--dsw-alias-button-ghost-active-fill); border-color: var(--dsw-alias-border-l3); color: var(--dsw-alias-label-primary); font-weight: 600; }
+.rstr-tag-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rstr-tag-count { font-size: 11px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+.rstr-tag-clear { align-self: flex-start; }
+.rstr-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); align-items: start; }
 .rstr-card { border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; padding: 14px 16px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; gap: 10px; }
 .rstr-card-bad { border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 50%, transparent); }
 .rstr-card-id { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -46,7 +46,10 @@
     "bannerMany": "有 {count} 项待处理",
     "bannerCta": "查看体检",
     "workspaceFallback": "还没有注册工作区，暂时按进程所在目录读取。",
-    "tabsSources": "档案源"
+    "tabsSources": "档案源",
+    "tagPool": "标签",
+    "tagPoolEmpty": "还没有标签——给档案加 `tags:`。",
+    "tagClear": "清除标签"
   },
   "roster": {
     "members": "{count} 名成员",

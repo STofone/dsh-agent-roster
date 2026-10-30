@@ -181,6 +181,13 @@ member and finally `roster_verify`. Creating the team stays with the runtime.
 
 ## Sidebar panel
 
+The panel takes the full page width; nothing constrains it to a reading column. The archive list has
+a **tag pool** on the left: every tag present in the library, with how many archives carry it. Clicking
+tags narrows the list — multiple selections are ANDed — and one button clears the selection. The tag
+pool is a filtered view only; it never writes tags back to files.
+
+A badge at the top summarises how many items need attention
+
 The client plugin adds an **Agent Roster** entry to the left sidebar: one row in the `sidebar.panellist` slot plus the matching key in the `main` slot. Clicking the row opens a full-width page with three tabs — the panel is not only a viewer:
 
 | Tab | What you can do |

@@ -46,7 +46,10 @@
     "bannerMany": "{count} things need attention",
     "bannerCta": "Open health",
     "workspaceFallback": "No workspace is registered yet; reading the process directory instead.",
-    "tabsSources": "Sources"
+    "tabsSources": "Sources",
+    "tagPool": "Tags",
+    "tagPoolEmpty": "No tags yet — add `tags:` to an archive.",
+    "tagClear": "Clear tags"
   },
   "roster": {
     "members": "{count} members",
