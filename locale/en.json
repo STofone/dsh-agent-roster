@@ -27,7 +27,10 @@
     "regionChina": "China mirror",
     "save": "Save",
     "saved": "Saved",
-    "saveFailed": "Could not save — the settings form is unavailable."
+    "saveFailed": "Could not save — the settings form is unavailable.",
+    "mirror": "Custom registry mirror",
+    "mirrorPlaceholder": "https://registry.npmmirror.com",
+    "mirrorHint": "When set, this replaces the region preset for index sources published as npm packages. Company mirrors with a sub-path (e.g. /repository/npm) work too; leave empty to use the region preset."
   },
   "panel": {
     "title": "Agent Roster",

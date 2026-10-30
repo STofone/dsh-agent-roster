@@ -27,7 +27,10 @@
     "regionChina": "国内镜像",
     "save": "保存",
     "saved": "已保存",
-    "saveFailed": "保存失败——设置表单当前不可用。"
+    "saveFailed": "保存失败——设置表单当前不可用。",
+    "mirror": "自定义镜像地址",
+    "mirrorPlaceholder": "https://registry.npmmirror.com",
+    "mirrorHint": "填了就用它代替下载区：按 npm 包形式发布的公共档案源从这里取。支持带子路径的公司镜像（如 /repository/npm）；留空用下载区的预置。"
   },
   "panel": {
     "title": "Agent 档案",

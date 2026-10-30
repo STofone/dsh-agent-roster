@@ -1846,6 +1846,7 @@ window.__ModuleLoader__.load({
       useTranslation();
       const [language, setLanguage] = useState(() => readLanguage(form));
       const [region, setRegion] = useState(() => readFormValue(form, "region", "auto"));
+      const [mirror, setMirror] = useState(() => readFormValue(form, "registryMirror", ""));
       const [dirs, setDirs] = useState(() => (library?.data?.config?.rosterDirs ?? []).join(", "));
       const [saved, setSaved] = useState("");
       const [version, setVersion] = useState("");
@@ -1855,6 +1856,7 @@ window.__ModuleLoader__.load({
         const off = form.subscribe(() => {
           setLanguage(readLanguage(form));
           setRegion(readFormValue(form, "region", "auto"));
+          setMirror(readFormValue(form, "registryMirror", ""));
         });
         return () => {
           if (typeof off === "function") off();
@@ -1889,6 +1891,12 @@ window.__ModuleLoader__.load({
       function changeRegion(next) {
         setRegion(next);
         write("region", next);
+      }
+
+      function saveMirror() {
+        // 镜像地址原样存：路径前缀（公司 Nexus 常带 /repository/npm）是它的一部分，
+        // 规整交给宿主（lib/remote.js 的 normalizeRegistryUrl），界面不在写盘前偷偷改写。
+        write("registryMirror", mirror.trim());
       }
 
       function saveDirs() {
@@ -1949,6 +1957,24 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
+        ),
+        h(
+          "div",
+          { className: "rstr-settings-field" },
+          h("span", { className: "rstr-label" }, t("settings.mirror")),
+          h(
+            "div",
+            { className: "rstr-settings-inline" },
+            h("input", {
+              className: "rstr-input",
+              value: mirror,
+              placeholder: t("settings.mirrorPlaceholder"),
+              "aria-label": t("settings.mirror"),
+              onChange: (event) => setMirror(event.target.value),
+            }),
+            h("button", { type: "button", className: "rstr-btn rstr-btn-sm", onClick: saveMirror }, t("settings.save")),
+          ),
+          h("span", { className: "rstr-muted rstr-small" }, t("settings.mirrorHint")),
         ),
         h(
           "div",

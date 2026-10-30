@@ -27,6 +27,7 @@ test("视图：普通值原样读出", () => {
   assert.equal(view.agentTeamsStateDir, ".state");
   assert.equal(view.indexes, false);
   assert.equal(view.region, "china");
+  assert.equal(view.registryMirror, "");
 });
 
 test("视图：索引源的三种取值都要原样保留（undefined / 空数组 = 官方源，false = 关掉）", () => {
@@ -85,4 +86,14 @@ test("视图：apply 收到 undefined 也不炸", () => {
   const view = configView(undefined);
   assert.deepEqual(view.rosterDirs, [""]);
   assert.equal(view.agentTeamsStateDir, ".agent-teams");
+});
+
+test("视图：自定义镜像地址原样读出（空值当没填）", () => {
+  assert.equal(configView({ registryMirror: "https://registry.npmmirror.com" }).registryMirror, "https://registry.npmmirror.com");
+  assert.equal(configView({ registryMirror: "" }).registryMirror, "");
+  assert.equal(configView({}).registryMirror, "");
+  assert.equal(
+    configView({ registryMirror: ref("https://mirror.example/npm") }).registryMirror,
+    "https://mirror.example/npm",
+  );
 });

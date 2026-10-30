@@ -2,6 +2,18 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.6.1] - 2026-10-30
+
+### Custom registry mirror
+
+- New config field `registryMirror`: type any npm registry URL in Settings (download section)
+  and index packages published as npm packages are fetched from there instead of the region
+  presets. Sub-paths are kept, so corporate Nexus layouts such as
+  `http://nexus.corp.local/repository/npm` work.
+- Precedence: a registry pinned inside a source wins, then `registryMirror`, then `region`.
+  A blank or malformed value is ignored instead of silently disabling downloads.
+- Tests: 195 passing (mirror normalisation, precedence, config-view passthrough).
+
 ## [0.6.0] - 2026-10-30
 
 ### Captain verification and applying a roster

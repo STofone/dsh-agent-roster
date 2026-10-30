@@ -191,7 +191,7 @@ pool is a filtered view only; it never writes tags back to files.
 Header actions follow the place they act on: **Import** and **New archive** sit in the archive tab
 next to the search box, **Refresh sources** sits in the sources tab (it bypasses the one-hour cache and
 re-reads the public index), and the header keeps a single **gear button** that opens the settings dialog.
-The dialog edits the language, the download region and the roster directories, and shows the resolved
+The dialog edits the language, the download region, the mirror address and the roster directories, and shows the resolved
 data directory, the team state directory and the version.
 
 A badge at the top summarises how many items need attention
@@ -250,6 +250,7 @@ All six are `exact` routes behind the host's `connection` fence and answer `405`
 | `language` | `"auto"` | panel language: `auto` follows DSH, or pin `zh` / `en` |
 | `indexes` | `[]` | public registry sources: an `https` `registry.json` or `npm:pkg`. Empty means the official source; `false` means local-only |
 | `region` | `"auto"` | download region: `china` reads npm-style index packages from the Tencent mirror; `auto` equals `global` (no probing, one less request) |
+| `registryMirror` | `""` | custom npm registry for download sources, e.g. `https://registry.npmmirror.com` or `http://nexus.corp.local/repository/npm`. Set it and it beats `region`; a registry pinned inside a source still beats both. Empty means no custom mirror |
 
 All six are `volatile`: changes apply immediately, no host restart.
 

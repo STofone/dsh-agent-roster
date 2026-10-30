@@ -34,6 +34,8 @@ function makeHost(services = {}) {
       // 快照需要一个工作区注册表，否则回退到 process.cwd()（在临时目录里跑会扫错地方）。
       if (name in services) return services[name];
       if (name in services) return services[name];
+      if (name in services) return services[name];
+      if (name in services) return services[name];
       if (name === "workspaceRegistry") return { list: () => [{ title: "test", path: root }] };
       return undefined;
     },

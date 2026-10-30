@@ -181,11 +181,9 @@ npx dsh-agent-roster list
 以及各标签的档案数，点标签即筛选——多选是「且」，一个按钮清除选择。标签池只影响视图，不会把
 标签写回文件。
 
-头部只留一个齿轮按钮打开**设置弹窗**：语言、下载区、档案库目录都能在这里改；解析出来的数据目录、
+头部只留一个齿轮按钮打开**设置弹窗**：语言、下载区、镜像地址、档案库目录都能在这里改；解析出来的数据目录、
 团队状态目录与版本号也列在同一处。导入与新建档案挪到档案页签的搜索框右侧，刷新只属于档案源页签
 （绕过一小时的缓存，直接回源读公共索引）。
-
-顶部一条徽标汇总
 
 客户端插件在左侧全局栏新增一行 **Agent Roster** 图标（`sidebar.panellist` 列表槽），并在 `main` 槽用同一个面板 id 注册整页内容；点图标即在主区域打开，宽度与对话页一致。面板分三个页签，不只是看：
 
@@ -239,6 +237,7 @@ npx dsh-agent-roster list
 | `language` | `"auto"` | 面板语言：`auto` 跟随 DSH，或固定 `zh` / `en` |
 | `indexes` | `[]` | 公共档案源：`https` 的 `registry.json` 或 `npm:pkg`。留空 = 官方源；显式 `false` = 只在本机库工作 |
 | `region` | `"auto"` | 下载区：`china` 时用腾讯 npm 镜像读 npm 形式的目录包；`auto` 等同 `global`（不自动探测，省一次出网） |
+| `registryMirror` | `""` | 自定义 npm 镜像地址（如 `https://registry.npmmirror.com`、`http://nexus.corp.local/repository/npm`）。填了它优先于 `region`；源里自己写死的 registry 又优先于它。留空 = 不用自定义镜像 |
 
 六项都是 `volatile`：改完立即生效，无需重启。
 

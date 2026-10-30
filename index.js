@@ -80,6 +80,14 @@ export const Config = z.object({
     .default("auto")
     .description("下载区：china 用腾讯 npm 镜像读 npm 形式的目录包；auto 等同 global（不自动探测，避免额外的出网请求）。")
     .volatile(),
+  registryMirror: z
+    .string()
+    .default("")
+    .description(
+      "自定义 npm 镜像地址（如 https://registry.npmmirror.com 或公司 Nexus 的 /repository/npm 子路径）：" +
+        "填了就优先于下载区的预置，用于按 npm 包形式发布的公共档案源。留空 = 用下载区的预置。",
+    )
+    .volatile(),
 });
 
 /**
