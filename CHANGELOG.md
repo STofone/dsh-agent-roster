@@ -2,6 +2,18 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.6.2] - 2026-10-30
+
+### Packaging
+
+- `peerDependencies` for `@deepseek-ai/dsh-tools` no longer uses the wildcard. node-semver only
+  admits a prerelease version when one comparator in the range shares its exact
+  `major.minor.patch` tuple and itself carries a prerelease tag, so `*` — like the broad
+  `>=0.0.1-rc.1 <0.2.0` form — silently excludes every prerelease harness build. The range is now
+  `^0.1.0-rc.1 || ^0.2.0-rc.1 || ^0.2.1-rc.1 || ^0.3.0-rc.1`, which admits the 0.1.x, 0.2.0-x,
+  0.2.1-x and 0.3.x prerelease lines while still refusing 0.4.x prereleases.
+- No runtime change; the peer stays optional because the host always provides the module.
+
 ## [0.6.1] - 2026-10-30
 
 ### Custom registry mirror
