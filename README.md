@@ -1,5 +1,7 @@
 # @stofone/dsh-agent-roster
 
+**English** | [简体中文](README.zh.md)
+
 Static member rosters for multi-agent teams in the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
 A roster is a file on disk: who is on the team, what each member is for, which model route they use, and which tools they are allowed to touch. This plugin defines that file format, validates it, and translates it into `agent_teams_*` call arguments — nothing more.

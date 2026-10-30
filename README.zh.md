@@ -1,5 +1,7 @@
 # @stofone/dsh-agent-roster
 
+[English](README.md) | **简体中文**
+
 面向多 Agent 团队的**静态成员档案**插件（DeepSeek Harness）。
 
 一份档案就是磁盘上的一个文件：团队里有谁、各自负责什么、走哪个模型路由、被允许碰哪些工具。本插件定义这套格式、校验它，并把它翻译成 `agent_teams_*` 的调用参数——仅此而已。
