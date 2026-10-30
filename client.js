@@ -37,6 +37,7 @@ window.__ModuleLoader__.load({
 
     const EFFORTS = ["low", "medium", "high", "default"];
     const LANGUAGES = ["auto", "zh", "en"];
+    const REGIONS = ["auto", "global", "china"];
     const FORMATS = ["yaml", "json"];
     const STYLE_ID = "dsh-agent-roster-style";
 
@@ -157,10 +158,12 @@ window.__ModuleLoader__.load({
 
     function useLibrary() {
       const [state, setState] = useState({ status: "loading", data: null, error: false });
-      const load = useCallback(async () => {
+      const load = useCallback(async (options) => {
+        // 只有档案源那处会传 { refresh: true }：绕过 registry 的 TTL，强制回源。
+        const forced = options !== null && typeof options === "object" && options.refresh === true;
         setState((current) => ({ ...current, status: current.data === null ? "loading" : "refreshing" }));
         try {
-          const result = await readJson(LIBRARY_ROUTE);
+          const result = await readJson(forced ? `${LIBRARY_ROUTE}?refresh=1` : LIBRARY_ROUTE);
           if (!result.ok || result.body === null) throw new Error(String(result.status));
           setState({ status: "ready", data: result.body, error: false });
         } catch {
@@ -170,7 +173,7 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         load();
       }, [load]);
-      return { ...state, reload: load };
+      return { ...state, reload: () => load(), refresh: () => load({ refresh: true }) };
     }
 
     /* ------------------------------------------------------------------ */
@@ -1213,12 +1216,16 @@ window.__ModuleLoader__.load({
     /* 主面板                                                              */
     /* ------------------------------------------------------------------ */
 
+    // 面板本身拿不到 ctx：这里由 apply() 把宿主服务放进来，供设置弹窗使用。
+    const HOST = { form: null, openPanel: null };
+
     function Panel() {
       useTranslation();
       const library = useLibrary();
       const [tab, setTab] = useState("rosters");
       const [query, setQuery] = useState("");
       const [selectedTags, setSelectedTags] = useState(() => new Set());
+      const [settingsOpen, setSettingsOpen] = useState(false);
       const [editor, setEditor] = useState(null);
       const [importing, setImporting] = useState(false);
       const [removing, setRemoving] = useState(null);
@@ -1333,9 +1340,18 @@ window.__ModuleLoader__.load({
         h(
           "div",
           { className: "rstr-head-actions" },
-          h("button", { type: "button", className: "rstr-btn", onClick: library.reload, disabled: library.status === "refreshing" }, library.status === "refreshing" ? t("panel.refreshing") : t("panel.refresh")),
-          h("button", { type: "button", className: "rstr-btn", onClick: () => setImporting(true), disabled: targets.length === 0 }, t("panel.import")),
-          h("button", { type: "button", className: "rstr-btn rstr-btn-primary", onClick: () => setEditor({ roster: null, rootDir: defaultRoot }), disabled: targets.length === 0 }, t("panel.create")),
+          // 头部只留一个入口：导入/新建属于档案页，刷新索引属于档案源，各自回到自己的页签。
+          h(
+            "button",
+            {
+              type: "button",
+              className: "rstr-btn rstr-settings-btn",
+              onClick: () => setSettingsOpen(true),
+              title: t("panel.settings"),
+            },
+            h("span", { className: "rstr-settings-glyph", "aria-hidden": "true" }, "\u2699"),
+            t("panel.settings"),
+          ),
         ),
       );
 
@@ -1430,13 +1446,36 @@ window.__ModuleLoader__.load({
             h(
               "div",
               { className: "rstr-rosters-main" },
-              h("input", {
-                className: "rstr-input rstr-search",
-                value: query,
-                placeholder: t("panel.searchPlaceholder"),
-                "aria-label": t("panel.search"),
-                onChange: (event) => setQuery(event.target.value),
-              }),
+              h(
+                "div",
+                { className: "rstr-toolbar" },
+                h("input", {
+                  className: "rstr-input rstr-search",
+                  value: query,
+                  placeholder: t("panel.searchPlaceholder"),
+                  "aria-label": t("panel.search"),
+                  onChange: (event) => setQuery(event.target.value),
+                }),
+                h(
+                  "div",
+                  { className: "rstr-toolbar-actions" },
+                  h(
+                    "button",
+                    { type: "button", className: "rstr-btn", onClick: () => setImporting(true), disabled: targets.length === 0 },
+                    t("panel.import"),
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      className: "rstr-btn rstr-btn-primary",
+                      onClick: () => setEditor({ roster: null, rootDir: defaultRoot }),
+                      disabled: targets.length === 0,
+                    },
+                    t("panel.create"),
+                  ),
+                ),
+              ),
               filtered.length === 0
                 ? h("p", { className: "rstr-muted" }, t("panel.noMatch"))
                 : h(
@@ -1476,6 +1515,8 @@ window.__ModuleLoader__.load({
           remote: snapshot?.remote ?? null,
           onToast: setToast,
           onPulled: () => library.reload(),
+          onRefresh: () => library.refresh(),
+          refreshing: library.status === "refreshing",
         });
       }
 
@@ -1509,6 +1550,22 @@ window.__ModuleLoader__.load({
             : null,
         ),
         toast !== null ? h("div", { className: "rstr-toast", role: "status" }, toast) : null,
+        settingsOpen
+          ? h(
+              Modal,
+              { title: t("panel.settings"), onClose: () => setSettingsOpen(false), width: "560px" },
+              h(SettingsSection, {
+                form: HOST.form,
+                library,
+                onSaved: () => library.reload(),
+                inModal: true,
+                onOpenPanel: () => {
+                  setSettingsOpen(false);
+                  HOST.openPanel?.();
+                },
+              }),
+            )
+          : null,
         editor !== null
           ? h(Editor, {
               target: { roster: editor.roster, rootDir: editor.rootDir, duplicate: editor.duplicate === true },
@@ -1551,7 +1608,7 @@ window.__ModuleLoader__.load({
      * 拉取是**显式动作**：后端按内容比对，相同的跳过、不同的默认不覆盖（会把冲突数报回来）。
      * 前端不做这份判断——它只把结果说清楚，避免"点一下按钮，本地改动就没了"。
      */
-    function SourcesTab({ remote, onToast, onPulled }) {
+    function SourcesTab({ remote, onToast, onPulled, onRefresh, refreshing }) {
       useTranslation();
       const [pulling, setPulling] = useState("");
       const [openId, setOpenId] = useState("");
@@ -1606,10 +1663,33 @@ window.__ModuleLoader__.load({
         }
       }
 
+      // 刷新是档案源自己的动作：绕过 TTL 重新回源，而不是重读本地快照。
+      const head = h(
+        "div",
+        { className: "rstr-sources-head" },
+        h(
+          "p",
+          { className: "rstr-muted rstr-small" },
+          indexes.length > 0
+            ? indexes
+                .map((index) =>
+                  `${index.label} · ${index.stale ? t("source.stale") : t("source.fetchedAt", { when: index.fetchedAt ?? "-" })}`,
+                )
+                .join("   ")
+            : t("source.refreshHint"),
+        ),
+        h(
+          "button",
+          { type: "button", className: "rstr-btn", onClick: onRefresh, disabled: refreshing === true },
+          refreshing === true ? t("panel.refreshing") : t("source.refresh"),
+        ),
+      );
+
       if (collections.length === 0) {
         return h(
           "div",
-          null,
+          { className: "rstr-sources" },
+          head,
           h(EmptyState, { title: t("source.empty"), body: t("source.emptyHint") }),
           problems.length > 0 ? h(DiagnosticList, { items: problems }) : null,
         );
@@ -1618,17 +1698,7 @@ window.__ModuleLoader__.load({
       return h(
         "div",
         { className: "rstr-sources" },
-        indexes.length > 0
-          ? h(
-              "p",
-              { className: "rstr-muted rstr-small" },
-              indexes
-                .map((index) =>
-                  `${index.label} · ${index.stale ? t("source.stale") : t("source.fetchedAt", { when: index.fetchedAt ?? "-" })}`,
-                )
-                .join("   "),
-            )
-          : null,
+        head,
         h(
           "div",
           { className: "rstr-cards" },
@@ -1772,14 +1842,20 @@ window.__ModuleLoader__.load({
      * 语言之外的配置项只读展示——档案目录与状态目录属于"部署事实"，
      * 让它们出现在两个地方反而会让人分不清哪个生效。
      */
-    function SettingsSection({ form, library, onOpenPanel }) {
+    function SettingsSection({ form, library, onOpenPanel, onSaved, inModal }) {
       useTranslation();
-      const [language, setLanguage] = useState(() => readFormLanguage(form));
+      const [language, setLanguage] = useState(() => readLanguage(form));
+      const [region, setRegion] = useState(() => readFormValue(form, "region", "auto"));
+      const [dirs, setDirs] = useState(() => (library?.data?.config?.rosterDirs ?? []).join(", "));
+      const [saved, setSaved] = useState("");
       const [version, setVersion] = useState("");
 
       useEffect(() => {
         if (form?.subscribe === undefined) return undefined;
-        const off = form.subscribe(() => setLanguage(readFormLanguage(form)));
+        const off = form.subscribe(() => {
+          setLanguage(readLanguage(form));
+          setRegion(readFormValue(form, "region", "auto"));
+        });
         return () => {
           if (typeof off === "function") off();
         };
@@ -1787,12 +1863,42 @@ window.__ModuleLoader__.load({
 
       useEffect(() => {
         setVersion(String(library?.data?.version ?? ""));
-      }, [library?.data?.version]);
+        setDirs((library?.data?.config?.rosterDirs ?? []).join(", "));
+      }, [library?.data?.version, library?.data?.config?.rosterDirs]);
 
-      function change(next) {
+      useEffect(() => {
+        if (saved === "") return undefined;
+        const timer = setTimeout(() => setSaved(""), 2000);
+        return () => clearTimeout(timer);
+      }, [saved]);
+
+      function write(key, value) {
+        try {
+          form?.set?.(key, value);
+          setSaved(t("settings.saved"));
+        } catch {
+          setSaved(t("settings.saveFailed"));
+        }
+      }
+
+      function changeLanguage(next) {
         setLanguage(next);
-        // auto 用空串表示"跟随"：配置项的默认值就是 auto，写回字符串即可。
-        form?.set?.("language", next);
+        write("language", next);
+      }
+
+      function changeRegion(next) {
+        setRegion(next);
+        write("region", next);
+      }
+
+      function saveDirs() {
+        // 逗号/分号/空白都当分隔符：用户从别处粘路径时不该因为分隔符被卡住。
+        const list = dirs
+          .split(/[,;\n]/)
+          .map((item) => item.trim())
+          .filter((item) => item !== "");
+        write("rosterDirs", list);
+        onSaved?.();
       }
 
       return h(
@@ -1815,7 +1921,7 @@ window.__ModuleLoader__.load({
                   type: "button",
                   className: `rstr-seg${language === value ? " rstr-seg-on" : ""}`,
                   "aria-pressed": language === value,
-                  onClick: () => change(value),
+                  onClick: () => changeLanguage(value),
                 },
                 value === "auto" ? t("settings.languageAuto") : value === "zh" ? t("settings.languageZh") : t("settings.languageEn"),
               ),
@@ -1825,14 +1931,42 @@ window.__ModuleLoader__.load({
         h(
           "div",
           { className: "rstr-settings-row" },
+          h("span", { className: "rstr-label" }, t("settings.region")),
+          h(
+            "div",
+            { className: "rstr-segmented" },
+            REGIONS.map((value) =>
+              h(
+                "button",
+                {
+                  key: value,
+                  type: "button",
+                  className: `rstr-seg${region === value ? " rstr-seg-on" : ""}`,
+                  "aria-pressed": region === value,
+                  onClick: () => changeRegion(value),
+                },
+                value === "auto" ? t("settings.regionAuto") : value === "global" ? t("settings.regionGlobal") : t("settings.regionChina"),
+              ),
+            ),
+          ),
+        ),
+        h(
+          "div",
+          { className: "rstr-settings-field" },
           h("span", { className: "rstr-label" }, t("settings.rosterDirs")),
           h(
-            "code",
-            { className: "rstr-code rstr-truncate", title: (library?.data?.config?.rosterDirs ?? []).join(", ") },
-            (library?.data?.config?.rosterDirs ?? []).length > 0
-              ? library.data.config.rosterDirs.join(", ")
-              : `${t("settings.globalLibrary")} ${library?.data?.config?.defaultRoot ?? ""}`,
+            "div",
+            { className: "rstr-settings-inline" },
+            h("input", {
+              className: "rstr-input",
+              value: dirs,
+              placeholder: library?.data?.config?.defaultRoot ?? "~/.dsh/agent-roster",
+              "aria-label": t("settings.rosterDirs"),
+              onChange: (event) => setDirs(event.target.value),
+            }),
+            h("button", { type: "button", className: "rstr-btn rstr-btn-sm", onClick: saveDirs }, t("settings.save")),
           ),
+          h("span", { className: "rstr-muted rstr-small" }, t("settings.rosterDirsHint")),
         ),
         h(
           "div",
@@ -1855,9 +1989,26 @@ window.__ModuleLoader__.load({
           { className: "rstr-settings-row" },
           h("span", { className: "rstr-label" }, t("settings.version")),
           h("code", { className: "rstr-code" }, version),
-          h("button", { type: "button", className: "rstr-btn rstr-btn-sm", onClick: onOpenPanel }, t("settings.openPanel")),
+          inModal === true ? null : h("button", { type: "button", className: "rstr-btn rstr-btn-sm", onClick: onOpenPanel }, t("settings.openPanel")),
         ),
+        saved === "" ? null : h("p", { className: "rstr-muted rstr-small" }, saved),
       );
+    }
+
+    /* 通用读表单值：volatile 字段在 getSnapshot().value 里，取不到就用兜底。 */
+    function readFormValue(form, key, fallback) {
+      try {
+        const value = form?.getSnapshot?.()?.value;
+        if (value !== null && typeof value === "object" && typeof value[key] === "string") return value[key];
+      } catch {
+        /* 表单不可用时按兜底值。 */
+      }
+      return fallback;
+    }
+
+    function readLanguage(form) {
+      const value = readFormValue(form, "language", "auto");
+      return LANGUAGES.includes(value) ? value : "auto";
     }
 
     function readFormLanguage(form) {
@@ -1897,6 +2048,13 @@ window.__ModuleLoader__.load({
 .rstr-code-strong { font-size: 13px; color: var(--dsw-alias-label-primary); font-weight: 600; }
 .rstr-truncate { display: inline-block; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .rstr-head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.rstr-settings-btn { display: inline-flex; align-items: center; gap: 6px; }
+.rstr-settings-glyph { font-size: 14px; line-height: 1; }
+.rstr-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.rstr-toolbar-actions { display: flex; gap: 8px; margin-left: auto; }
+.rstr-sources-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.rstr-settings { display: flex; flex-direction: column; gap: 10px; }
+.rstr-settings-title { margin: 0; font-size: 14px; font-weight: 600; }
 
 .rstr-btn { border: 1px solid var(--dsw-alias-border-l3); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 6px 12px; font-size: 13px; font-family: inherit; cursor: pointer; transition: background .12s ease, border-color .12s ease; }
 .rstr-btn:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
@@ -2024,10 +2182,11 @@ window.__ModuleLoader__.load({
 
 .rstr-foot { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--dsw-alias-border-l1); padding-top: 10px; margin-top: 4px; color: var(--dsw-alias-label-secondary); }
 
-.rstr-settings { display: flex; flex-direction: column; gap: 10px; }
-.rstr-settings-title { margin: 0; font-size: 14px; font-weight: 600; }
 .rstr-settings-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .rstr-settings-row .rstr-label { min-width: 120px; }
+.rstr-settings-field { display: flex; flex-direction: column; gap: 6px; }
+.rstr-settings-inline { display: flex; align-items: center; gap: 8px; }
+.rstr-settings-inline .rstr-input { flex: 1 1 auto; min-width: 0; }
 `;
 
     function ensureStyle() {
@@ -2127,7 +2286,8 @@ window.__ModuleLoader__.load({
         "agent-roster: language sync",
       );
 
-      const openPanel = () => {
+      HOST.form = form;
+      HOST.openPanel = () => {
         try {
           layout?.selectPanel?.(PANEL_ID);
         } catch {
@@ -2176,7 +2336,7 @@ window.__ModuleLoader__.load({
           { name: "settings.section", id: PANEL_ID, order: 55, locale: NS, label: () => t("settings.nav") },
           function AgentRosterSettings() {
             const library = useLibrary();
-            return h(SettingsSection, { form, library, onOpenPanel: openPanel });
+            return h(SettingsSection, { form, library, onOpenPanel: HOST.openPanel, inModal: false });
           },
         ),
       );

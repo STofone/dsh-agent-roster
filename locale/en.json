@@ -20,7 +20,14 @@
     "policiesNone": "Not configured — policy ids in rosters stay declarations only.",
     "policiesCount": "{count} declared",
     "version": "Version",
-    "openPanel": "Open panel"
+    "openPanel": "Open panel",
+    "region": "Download region",
+    "regionAuto": "Follow default",
+    "regionGlobal": "Global",
+    "regionChina": "China mirror",
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Could not save — the settings form is unavailable."
   },
   "panel": {
     "title": "Agent Roster",
@@ -49,7 +56,8 @@
     "tabsSources": "Sources",
     "tagPool": "Tags",
     "tagPoolEmpty": "No tags yet — add `tags:` to an archive.",
-    "tagClear": "Clear tags"
+    "tagClear": "Clear tags",
+    "settings": "Settings"
   },
   "roster": {
     "members": "{count} members",
@@ -243,7 +251,9 @@
     "hide": "Hide rosters",
     "loading": "Loading rosters…",
     "repo": "Repository",
-    "conflictHint": "Local versions differ; nothing was overwritten."
+    "conflictHint": "Local versions differ; nothing was overwritten.",
+    "refresh": "Refresh sources",
+    "refreshHint": "No index has been read yet — refresh to fetch the public index."
   },
   "captain": {
     "title": "Captain",

@@ -186,6 +186,12 @@ a **tag pool** on the left: every tag present in the library, with how many arch
 tags narrows the list — multiple selections are ANDed — and one button clears the selection. The tag
 pool is a filtered view only; it never writes tags back to files.
 
+Header actions follow the place they act on: **Import** and **New archive** sit in the archive tab
+next to the search box, **Refresh sources** sits in the sources tab (it bypasses the one-hour cache and
+re-reads the public index), and the header keeps a single **gear button** that opens the settings dialog.
+The dialog edits the language, the download region and the roster directories, and shows the resolved
+data directory, the team state directory and the version.
+
 A badge at the top summarises how many items need attention
 
 The client plugin adds an **Agent Roster** entry to the left sidebar: one row in the `sidebar.panellist` slot plus the matching key in the `main` slot. Clicking the row opens a full-width page with three tabs — the panel is not only a viewer:

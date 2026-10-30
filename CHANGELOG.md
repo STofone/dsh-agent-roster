@@ -19,6 +19,9 @@
 - Panel: captain card inside each archive with the declared routing, the four-state checks and an
   "apply" row (existing session / new session + optional working directory).
 - Locale dictionary gained the `captain` section in both languages.
+- Header actions moved to where they act: import/new archive on the archive tab, "refresh sources"
+  on the sources tab (bypasses the TTL and re-reads the index), and a gear button that opens a
+  settings dialog (language, download region, roster directories, resolved paths).
 - The panel fills the whole page (no `max-width` on the outer container) and the archive
   list gains a tag pool on the left: every tag in the library with its count, multi-select
   narrows with AND semantics, one click clears.

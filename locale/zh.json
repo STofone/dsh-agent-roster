@@ -20,7 +20,14 @@
     "policiesNone": "未配置——档案里写的策略 id 只是声明，运行时不生效。",
     "policiesCount": "已声明 {count} 个",
     "version": "版本",
-    "openPanel": "打开面板"
+    "openPanel": "打开面板",
+    "region": "下载区",
+    "regionAuto": "跟随默认",
+    "regionGlobal": "海外",
+    "regionChina": "国内镜像",
+    "save": "保存",
+    "saved": "已保存",
+    "saveFailed": "保存失败——设置表单当前不可用。"
   },
   "panel": {
     "title": "Agent 档案",
@@ -49,7 +56,8 @@
     "tabsSources": "档案源",
     "tagPool": "标签",
     "tagPoolEmpty": "还没有标签——给档案加 `tags:`。",
-    "tagClear": "清除标签"
+    "tagClear": "清除标签",
+    "settings": "设置"
   },
   "roster": {
     "members": "{count} 名成员",
@@ -243,7 +251,9 @@
     "hide": "收起",
     "loading": "正在读取档案…",
     "repo": "仓库",
-    "conflictHint": "本地版本与远端不同，未覆盖。"
+    "conflictHint": "本地版本与远端不同，未覆盖。",
+    "refresh": "刷新档案源",
+    "refreshHint": "还没有读到任何索引——点刷新去拉公共索引。"
   },
   "captain": {
     "title": "队长",
