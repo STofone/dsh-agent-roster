@@ -55,6 +55,8 @@ test("清单：locale 两份齐全且 meta 可读", () => {
     assert.equal(typeof dict.meta?.title, "string", `${locale}.json 缺 meta.title`);
     assert.ok(dict.meta.title.length > 0, `${locale}.json 的 meta.title 不能为空`);
     assert.equal(typeof dict.meta?.description, "string", `${locale}.json 缺 meta.description`);
+    assert.equal(typeof dict.captain?.apply, "string", `${locale}.json 缺 captain.apply`);
+    assert.equal(typeof dict.captain?.status?.differ, "string", `${locale}.json 缺 captain.status.differ`);
   }
 });
 
@@ -79,6 +81,7 @@ test("客户端半边：能被模块表加载，面板在左栏、语言与配�
   assert.match(source, /\/plugins\/dsh-agent-roster\/library/, "面板必须读 Host 的只读路由");
   assert.match(source, /\/plugins\/dsh-agent-roster\/rosters/, "写操作必须走 Host 的写路由");
   assert.match(source, /\/plugins\/dsh-agent-roster\/locale/, "词典必须从 Host 路由取");
+  assert.match(source, /\/plugins\/dsh-agent-roster\/apply/, "队长应用必须走 Host 路由");
   // 纯语法检查：编译通过即可，不执行（执行需要浏览器模块表）。
   assert.doesNotThrow(() => new Function(source), "client.js 必须语法合法");
 });

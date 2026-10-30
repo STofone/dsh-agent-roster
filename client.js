@@ -33,6 +33,7 @@ window.__ModuleLoader__.load({
     const ROSTERS_ROUTE = "/plugins/dsh-agent-roster/rosters";
     const INSTALL_ROUTE = "/plugins/dsh-agent-roster/install";
     const COLLECTION_ROUTE = "/plugins/dsh-agent-roster/collection";
+    const APPLY_ROUTE = "/plugins/dsh-agent-roster/apply";
 
     const EFFORTS = ["low", "medium", "high", "default"];
     const LANGUAGES = ["auto", "zh", "en"];
@@ -503,7 +504,152 @@ window.__ModuleLoader__.load({
       );
     }
 
-    function RosterCard({ roster, deployment, onEdit, onDuplicate, onDelete, onCopy }) {
+    /**
+     * 队长卡：显示档案里声明的队长 + 与部署实际值的核对结果 + “应用”入口。
+     *
+     * 应用只做两件事：切会话模型、往会话里排一段建团队提示词。它不会、也不能
+     * 直接改部署配置——provider/model 不一致时，界面如实说“要改部署”，而不是假装成功。
+     */
+    function CaptainPanel({ roster, report, sessions, onToast }) {
+      useTranslation();
+      const captain = roster.captain ?? {};
+      const [mode, setMode] = useState("existing");
+      const [sessionId, setSessionId] = useState("");
+      const [cwd, setCwd] = useState("");
+      const [busy, setBusy] = useState(false);
+      const [result, setResult] = useState(null);
+
+      useEffect(() => {
+        if (sessionId === "" && sessions.length > 0) setSessionId(sessions[0].sessionId);
+      }, [sessions, sessionId]);
+
+      const checks = report?.checks ?? [];
+      const canApply = mode === "new" || sessionId !== "";
+
+      async function apply() {
+        if (!canApply || busy) return;
+        setBusy(true);
+        setResult(null);
+        try {
+          const payload = { rosterId: roster.id, mode };
+          if (mode === "existing") payload.sessionId = sessionId;
+          else if (cwd.trim() !== "") payload.cwd = cwd.trim();
+          const response = await readJson(APPLY_ROUTE, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!response.ok || response.body?.ok !== true) {
+            setResult({ ok: false, code: response.body?.code ?? response.body?.error?.code ?? String(response.status) });
+            onToast(t("captain.applyFailed"));
+            return;
+          }
+          setResult({ ok: true, sessionId: response.body.sessionId });
+          onToast(t("captain.applied"));
+        } catch {
+          setResult({ ok: false, code: "network" });
+          onToast(t("misc.failed"));
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      return h(
+        "section",
+        { className: "rstr-captain" },
+        h("div", { className: "rstr-section-title rstr-mt" }, t("captain.title")),
+        h("p", { className: "rstr-hint" }, t("captain.hint")),
+        h(
+          "div",
+          { className: "rstr-meta-grid" },
+          h("span", { className: "rstr-label" }, t("captain.declared")),
+          h("span", { className: "rstr-mono" }, captain.provider || "?") ,
+          h("span", { className: "rstr-mono" }, captain.model || "?"),
+          h("span", { className: "rstr-mono" }, captain.reasoningEffort || t("captain.effortDefault")),
+          h(
+            "span",
+            { className: "rstr-muted" },
+            String(captain.personaPrefix ?? "").trim() === "" ? t("captain.noPersona") : t("captain.hasPersona"),
+          ),
+        ),
+        checks.length === 0
+          ? h("p", { className: "rstr-hint" }, t("captain.noChecks"))
+          : h(
+              "ul",
+              { className: "rstr-checks" },
+              checks.map((check) =>
+                h(
+                  "li",
+                  { key: check.field, className: "rstr-check" },
+                  h("span", null, t(`captain.check.${check.field}`)),
+                  h(
+                    "span",
+                    { className: check.status === "match" ? "rstr-ok" : check.status === "differ" ? "rstr-bad" : "rstr-muted" },
+                    t(`captain.status.${check.status}`, { declared: check.declared || "?", actual: check.actual || "?" }),
+                  ),
+                ),
+              ),
+            ),
+        h(
+          "div",
+          { className: "rstr-apply" },
+          h("div", { className: "rstr-label" }, t("captain.applyTo")),
+          h(
+            "div",
+            { className: "rstr-segmented" },
+            h(
+              "button",
+              { type: "button", className: mode === "existing" ? "rstr-seg rstr-seg-on" : "rstr-seg", onClick: () => setMode("existing") },
+              t("captain.modeExisting"),
+            ),
+            h(
+              "button",
+              { type: "button", className: mode === "new" ? "rstr-seg rstr-seg-on" : "rstr-seg", onClick: () => setMode("new") },
+              t("captain.modeNew"),
+            ),
+          ),
+          mode === "existing"
+            ? h(
+                "select",
+                {
+                  className: "rstr-select",
+                  value: sessionId,
+                  onChange: (event) => setSessionId(event.target.value),
+                },
+                sessions.length === 0
+                  ? h("option", { value: "" }, t("captain.noSessions"))
+                  : sessions.map((session) =>
+                      h(
+                        "option",
+                        { key: session.sessionId, value: session.sessionId },
+                        `${session.sessionId.slice(0, 12)} · ${session.cwd || "?"}${
+                          session.model === null ? "" : ` · ${session.model.model}`
+                        }`,
+                      ),
+                    ),
+              )
+            : h("input", {
+                className: "rstr-input",
+                placeholder: t("captain.cwdPlaceholder"),
+                value: cwd,
+                onChange: (event) => setCwd(event.target.value),
+              }),
+          h(
+            "button",
+            { type: "button", className: "rstr-btn rstr-btn-primary", disabled: !canApply || busy, onClick: apply },
+            busy ? t("captain.applying") : t("captain.apply"),
+          ),
+        ),
+        result !== null && result.ok === false
+          ? h("p", { className: "rstr-bad rstr-small" }, t("captain.applyFailedCode", { code: result.code }))
+          : null,
+        result !== null && result.ok === true
+          ? h("p", { className: "rstr-ok rstr-small" }, t("captain.appliedTo", { session: result.sessionId }))
+          : null,
+      );
+    }
+
+    function RosterCard({ roster, deployment, captainReport, sessions, onToast, onEdit, onDuplicate, onDelete, onCopy }) {
       const [open, setOpen] = useState(false);
       const errors = (roster.diagnostics ?? []).filter((item) => item?.severity === "error").length;
       const deployed = deployment !== undefined && deployment.deployed > 0;
@@ -573,6 +719,9 @@ window.__ModuleLoader__.load({
               roster.members.length === 0
                 ? h("p", { className: "rstr-muted" }, t("roster.noMembers"))
                 : roster.members.map((member) => h(MemberBlock, { key: member.name, member })),
+              roster.captain === null || roster.captain === undefined
+                ? null
+                : h(CaptainPanel, { roster, report: captainReport, sessions: sessions ?? [], onToast }),
               h(DiagnosticList, { items: roster.diagnostics }),
             )
           : null,
@@ -1234,6 +1383,11 @@ window.__ModuleLoader__.load({
                       key: `${roster.rootDir}::${roster.id}`,
                       roster,
                       deployment: snapshot?.deployments?.[roster.id],
+                      captainReport: (snapshot?.captain?.reports ?? []).find(
+                        (item) => item.rosterId === roster.id && item.rootDir === roster.rootDir,
+                      ),
+                      sessions: snapshot?.sessions?.sessions ?? [],
+                      onToast: setToast,
                       onEdit: () => setEditor({ roster, rootDir: roster.rootDir }),
                       onDuplicate: () => setEditor({ roster, rootDir: roster.rootDir, duplicate: true }),
                       onDelete: () => setRemoving(roster),
@@ -1768,6 +1922,13 @@ window.__ModuleLoader__.load({
 
 .rstr-editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .rstr-editor-toolbar .rstr-input { width: 110px; }
+.rstr-captain { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--dsw-alias-border-l3); margin-top: 12px; padding-top: 10px; }
+.rstr-meta-grid { display: grid; grid-template-columns: auto repeat(4, minmax(0, auto)); gap: 6px 12px; align-items: baseline; font-size: 12px; }
+.rstr-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.rstr-check { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); padding-bottom: 3px; }
+.rstr-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rstr-select { background: var(--dsw-alias-bg-l2); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l3); border-radius: 8px; padding: 5px 8px; font-size: 12px; max-width: 320px; }
+.rstr-bad { color: var(--dsw-alias-state-error-primary); }
 .rstr-segmented { display: inline-flex; border: 1px solid var(--dsw-alias-border-l3); border-radius: 8px; overflow: hidden; }
 .rstr-seg { border: none; background: transparent; padding: 5px 12px; font-size: 12px; cursor: pointer; color: var(--dsw-alias-label-secondary); }
 .rstr-seg:hover { background: var(--dsw-alias-interactive-bg-hover); }

@@ -5,7 +5,13 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 
 import { globalRosterRoot } from "../lib/home.js";
-import { buildHints, buildPanelSnapshot, countDeployments, resolveRoots } from "../lib/service.js";
+import {
+  buildCaptainSection,
+  buildHints,
+  buildPanelSnapshot,
+  countDeployments,
+  resolveRoots,
+} from "../lib/service.js";
 
 const ROSTER = `kind: dsh-agent-roster/v1
 roster: demo
@@ -215,4 +221,65 @@ describe("buildHints", () => {
     const configured = buildHints({ ...base, rosters, config: { knownToolPolicies: ["read-only"] } });
     assert.equal(configured.some((hint) => hint.code === "tool-policies-unset"), false);
   });
+});
+
+it("buildCaptainSection：读不到部署配置时核对项是 unknown，不冒充通过", () => {
+  const rosters = [{ id: "agent-teams", rootDir: "/lib", captain: { name: "lead", provider: "p", model: "m" } }];
+  const section = buildCaptainSection(rosters, {
+    readDeployed: () => ({ home: "/home", displayed: "$DSH_HOME", profiles: [], diagnostics: [] }),
+  });
+
+  assert.equal(section.deployed.displayed, "$DSH_HOME");
+  assert.deepEqual(section.deployed.profiles, []);
+  assert.equal(section.reports.length, 1);
+  assert.equal(section.reports[0].rosterId, "agent-teams");
+  // provider/model 声明了但读不到部署 → unknown；没声明的字段记 undeclared，不混作未知。
+  assert.deepEqual(
+    section.reports[0].checks.map((check) => [check.field, check.status]),
+    [
+      ["provider", "unknown"],
+      ["model", "unknown"],
+      ["reasoningEffort", "undeclared"],
+      ["personaPrefix", "unknown"],
+    ],
+  );
+  assert.equal(section.reports[0].ok, false);
+});
+
+it("buildCaptainSection：声明与部署一致时报 ok，且只收有 captain 段的档案", () => {
+  const rosters = [
+    { id: "with-captain", rootDir: "/lib", captain: { name: "lead", provider: "p", model: "m" } },
+    { id: "no-captain", rootDir: "/lib" },
+  ];
+  const section = buildCaptainSection(rosters, {
+    readDeployed: () => ({
+      home: "/home",
+      displayed: "~/.dsh",
+      profiles: [
+        {
+          profile: "web",
+          provider: "p",
+          model: "m",
+          reasoningEffort: "",
+          personas: [{ preset: "preset-standard", prefix: "先读后写。" }],
+        },
+      ],
+      diagnostics: [],
+    }),
+  });
+
+  assert.equal(section.reports.length, 1);
+  assert.equal(section.reports[0].ok, true);
+  assert.equal(section.deployed.profiles[0].profile, "web");
+  assert.equal(section.deployed.profiles[0].personas, 1);
+});
+
+it("buildCaptainSection：读部署抛错时降级成 captain-unreadable 诊断", () => {
+  const section = buildCaptainSection([{ id: "x", rootDir: "/lib", captain: { name: "lead" } }], {
+    readDeployed: () => {
+      throw new Error("boom");
+    },
+  });
+  assert.equal(section.deployed.diagnostics[0].code, "captain-unreadable");
+  assert.equal(section.reports[0].ok, false);
 });

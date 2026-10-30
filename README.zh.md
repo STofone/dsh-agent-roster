@@ -162,6 +162,17 @@ npx dsh-agent-roster list
 
 三个带路径的工具（`roster_list` / `roster_show` / `roster_create`）都接受 `path` 参数：给了就只看那个目录，不会悄悄回落到配置目录。
 
+### 队长核对
+
+档案里的 `captain` 段是声明。队长就是创建团队的那个会话——它没有成员行，模型来自部署
+（`agent-default-model`），人格来自 agent preset。所以面板做的是**核对**，不是假装能写：
+设置页显示每个 profile 里实际部署的 provider / model，每份带 captain 段的档案按字段报
+「一致 / 不一致 / 未声明 / 无法核对」。读不到部署配置时是「无法核对」，永远不会写成“通过”。
+
+**应用**是这块唯一会写入的动作：把选中会话切到声明里的模型，并排入一段提示词，让它依次调用
+`agent_teams_create`、逐成员 `agent_teams_add_member`，最后 `roster_verify` 核对。
+团队仍由运行时创建，插件不代劳。
+
 ## 左侧栏面板
 
 客户端插件在左侧全局栏新增一行 **Agent Roster** 图标（`sidebar.panellist` 列表槽），并在 `main` 槽用同一个面板 id 注册整页内容；点图标即在主区域打开，宽度与对话页一致。面板分三个页签，不只是看：
@@ -199,6 +210,7 @@ npx dsh-agent-roster list
 | `/plugins/dsh-agent-roster/library` | GET | 面板快照：工作区、档案库、档案、团队、提示、计数、远端源状态 |
 | `/plugins/dsh-agent-roster/document` | GET | 单份档案的原文与解析结果（编辑器用） |
 | `/plugins/dsh-agent-roster/rosters` | POST | 新建 / 更新 / 删除 / 导入 / 导出单份档案 |
+| `/plugins/dsh-agent-roster/apply` | POST | 把档案里的队长应用到已有会话或新会话，并排入建团队提示词 |
 | `/plugins/dsh-agent-roster/collection` | GET | 拉取某个 collection 的档案内容（只读，不落盘） |
 | `/plugins/dsh-agent-roster/install` | POST | 把某个 collection 落盘到本机档案库（幂等，默认不覆盖） |
 | `/plugins/dsh-agent-roster/locale` | GET | 面板词典（`en` / `zh`） |
@@ -239,7 +251,7 @@ npx dsh-agent-roster list
 
 ```bash
 npm install
-npm test          # node --test，163 个用例
+npm test          # node --test，191 个用例
 npm run smoke     # 用真实 DSH bundle 注册工具，断言输出可无损往返
 node scripts/check-locale.mjs   # client.js 里的静态 t() 键必须两本词典都有
 ```
@@ -261,7 +273,7 @@ test/             单测
 
 本机已验证：
 
-- `npm test` —— 163/163 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、六条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束、声明层字段与队长段、schema 与常量对齐）。
+- `npm test` —— 191/191 通过（格式、解析、校验、扫描、路径、桥接、核对、无损 JSON、写入计划与执行、六条路由、快照与提示、两本词典一致、工具契约、客户端加载器契约、包清单、配置视图、样式 token 约束、声明层字段与队长段、schema 与常量对齐）。
 - `npm run smoke` —— 用真实 DSH bundle 的 `defineTool` 注册五个工具，逐个调用：输出全部通过无损校验、`path` 覆盖生效、释放干净；同一条命令随后用桩模块表加载 `client.js`，断言三处槽位注册、样式只注入一次、effect 可回收。
 - CLI：`validate --dir examples` 对两座示例库退出码 0。
 - 用插件管理器真的装进了本机 profile（`plugin_manager install_bundle` 指向本仓库 → `link:` 依赖 + bundle 条目），重启后按链接读取本仓库文件。

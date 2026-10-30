@@ -2,6 +2,24 @@
 
 遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 与 [SemVer](https://semver.org/lang/zh-CN/)。
 
+## [0.6.0] - 2026-10-30
+
+### Captain verification and applying a roster
+
+- The panel now compares an archive's `captain` block with what the deployment actually says:
+  provider / model / reasoning-effort / persona prefix are read from every profile's
+  `cordis.patch.yml` and reported as `match`, `differ`, `undeclared` or `unknown`.
+  Unreadable deployment config is never reported as a pass.
+- New `POST /plugins/dsh-agent-roster/apply`: picks an existing session or creates a new one,
+  applies the declared model to that session, and queues a prompt that builds the team with
+  `agent_teams_create` + `agent_teams_add_member` + `roster_verify`. The plugin still never
+  creates teams itself.
+- `/library` now also returns the session list (read-only) and the captain section.
+- `roster_verify` reports the captain checks next to the member checks.
+- Panel: captain card inside each archive with the declared routing, the four-state checks and an
+  "apply" row (existing session / new session + optional working directory).
+- Locale dictionary gained the `captain` section in both languages.
+
 ## [0.5.1] - 2026-10-29
 
 ### Fixed

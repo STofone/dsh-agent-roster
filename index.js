@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import z from "@deepseek-ai/schemastery";
 
 import { configView } from "./lib/config-view.js";
+import { applyCaptain, listSessions } from "./lib/apply.js";
 import { collectLibrary } from "./lib/library.js";
 import { parseDocumentText } from "./lib/parse.js";
 import { validateRoster } from "./lib/validate.js";
@@ -111,7 +112,9 @@ export function apply(ctx, config) {
         const query = new URL(req.url ?? "/", "http://localhost").searchParams;
         // 远程源是“附属信息”：拉不到也不能让本地档案库的响应失败，所以失败只体现在 remote.diagnostics 里。
         const remote = await loadRemotePanel(settings, { refresh: query.get("refresh") === "1" });
-        sendJson(res, 200, { ...snapshot, remote });
+        // 会话列表也是“附属信息”：没有 sessionController（或它报错）时面板仍要能用。
+        const sessions = await listSessions(ctx.get?.("sessionController"));
+        sendJson(res, 200, { ...snapshot, remote, sessions });
       },
       "library route",
     );
@@ -236,6 +239,43 @@ export function apply(ctx, config) {
         sendJson(res, 200, result);
       },
       "install route",
+    );
+
+    register(
+      "/plugins/dsh-agent-roster/apply",
+      async (req, res) => {
+        if (guard(req, res)) return;
+        if (!requireMethod(req, res, "POST")) return;
+        const body = await readJsonBody(req);
+        if (!body.ok) {
+          sendError(res, body.status, body.code);
+          return;
+        }
+        const input = body.value !== null && typeof body.value === "object" ? body.value : {};
+        const rosterId = typeof input.rosterId === "string" ? input.rosterId : "";
+        if (rosterId === "") {
+          sendError(res, 400, "missing-roster");
+          return;
+        }
+        // 只允许对“档案库里真实存在且校验通过”的档案动手：输入不构造路径，也不走缓存。
+        const library = collectLibrary(ctx, settings, { name: pkg.name, version: pkg.version });
+        const rosters = library.workspaces.flatMap((workspace) => workspace.rosters);
+        const roster = rosters.find((item) => item.id === rosterId);
+        if (roster === undefined) {
+          sendJson(res, 404, { ok: false, error: { code: "roster-not-found" }, known: rosters.map((item) => item.id) });
+          return;
+        }
+        const result = await applyCaptain({
+          sessionController: ctx.get?.("sessionController"),
+          roster,
+          mode: input.mode === "new" ? "new" : "existing",
+          sessionId: typeof input.sessionId === "string" ? input.sessionId : "",
+          cwd: typeof input.cwd === "string" ? input.cwd : "",
+        });
+        const status = result.ok ? 200 : result.code === "session-controller-unavailable" ? 503 : 400;
+        sendJson(res, status, result);
+      },
+      "apply route",
     );
 
     register(

@@ -18,7 +18,7 @@ const root = nodePath.resolve(nodePath.dirname(fileURLToPath(import.meta.url)), 
 const examples = nodePath.join(root, "examples");
 
 /** 造一个宿主桩：注册的工具与路由都被收集起来，effect 可回收。 */
-function makeHost() {
+function makeHost(services = {}) {
   const routes = new Map();
   const tools = new Map();
   const cleanups = [];
@@ -32,6 +32,11 @@ function makeHost() {
     logger: { info() {}, warn() {}, error() {} },
     get(name) {
       // 快照需要一个工作区注册表，否则回退到 process.cwd()（在临时目录里跑会扫错地方）。
+      if (name in services) return services[name];
+      if (name in services) return services[name];
+      if (name in services) return services[name];
+      if (name in services) return services[name];
+      if (name in services) return services[name];
       if (name === "workspaceRegistry") return { list: () => [{ title: "test", path: root }] };
       return undefined;
     },
@@ -120,6 +125,8 @@ test("library：200 + 快照里能看到示例库的两份档案", async () => {
   );
   assert.equal(typeof result.body.hints, "object");
   assert.equal(typeof result.body.teams, "object");
+  assert.equal(typeof result.body.captain, "object");
+  assert.equal(typeof result.body.sessions, "object");
 });
 
 test("library：方法不符返回 405 且声明 allow", async () => {
@@ -301,4 +308,100 @@ test("工具：apply() 之后五个工具都在注册表里", () => {
     [...host.tools.keys()].sort(),
     ["roster_create", "roster_index", "roster_list", "roster_show", "roster_verify"],
   );
+});
+
+test("apply：方法不符是 405，缺 rosterId 是 400", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+  const wrongMethod = await call(host, "/plugins/dsh-agent-roster/apply", makeReq());
+  assert.equal(wrongMethod.status, 405);
+  assert.equal(wrongMethod.headers.get("allow"), "POST");
+
+  const missing = await call(host, "/plugins/dsh-agent-roster/apply", makeReq({ method: "POST", body: {} }));
+  assert.equal(missing.status, 400);
+  assert.equal(missing.body.error.code, "missing-roster");
+});
+
+test("apply：不存在的档案是 404，并列出已知档案", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+  const result = await call(
+    host,
+    "/plugins/dsh-agent-roster/apply",
+    makeReq({ method: "POST", body: { rosterId: "nope" } }),
+  );
+  assert.equal(result.status, 404);
+  assert.equal(result.body.error.code, "roster-not-found");
+  assert.deepEqual([...result.body.known].sort(), ["core-review", "research"]);
+});
+
+test("apply：没有 sessionController 时如实 503，不假装成功", async () => {
+  const host = makeHost();
+  apply(host.ctx, CONFIG);
+  const result = await call(
+    host,
+    "/plugins/dsh-agent-roster/apply",
+    makeReq({ method: "POST", body: { rosterId: "core-review", mode: "new" } }),
+  );
+  assert.equal(result.status, 503);
+  assert.equal(result.body.code, "session-controller-unavailable");
+});
+
+test("apply：有 sessionController 时切模型并把建团队提示词排进会话", async () => {
+  const calls = [];
+  const sessionController = {
+    async create() {
+      calls.push(["create"]);
+      return { sessionId: "s-new" };
+    },
+    async selectModel(request) {
+      calls.push(["selectModel", request]);
+      return { selected: { provider: request.provider, model: request.model } };
+    },
+    async prompt(request) {
+      calls.push(["prompt", request]);
+      return { accepted: true };
+    },
+    async list() {
+      return { items: [] };
+    },
+  };
+  const host = makeHost({ sessionController });
+  apply(host.ctx, CONFIG);
+  const result = await call(
+    host,
+    "/plugins/dsh-agent-roster/apply",
+    makeReq({ method: "POST", body: { rosterId: "core-review", mode: "new" } }),
+  );
+  assert.equal(result.status, 200, result.raw);
+  assert.equal(result.body.ok, true);
+  assert.equal(result.body.sessionId, "s-new");
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ["create", "prompt"],
+    "core-review 没有声明队长路由时不切模型",
+  );
+});
+
+test("apply：已有会话但没给 sessionId 是 400 missing-session", async () => {
+  const sessionController = {
+    async create() {
+      return { sessionId: "s" };
+    },
+    async prompt() {
+      return { accepted: true };
+    },
+    async list() {
+      return { items: [] };
+    },
+  };
+  const host = makeHost({ sessionController });
+  apply(host.ctx, CONFIG);
+  const result = await call(
+    host,
+    "/plugins/dsh-agent-roster/apply",
+    makeReq({ method: "POST", body: { rosterId: "core-review", mode: "existing" } }),
+  );
+  assert.equal(result.status, 400);
+  assert.equal(result.body.code, "missing-session");
 });

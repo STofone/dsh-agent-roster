@@ -166,6 +166,19 @@ All five are read-only with respect to team state. `roster_create` only produces
 
 `roster_list`, `roster_show`, `roster_create` and `roster_verify` all accept a `path` argument: when given, it is the library root, with no silent fallback to the configured directory.
 
+### Captain verification
+
+An archive's `captain` block is a declaration. The captain is the session that creates the team — it
+has no member row, its model comes from the deployment (`agent-default-model`) and its persona from
+the agent preset. The panel therefore **compares** instead of pretending to write: the Settings row
+shows the deployed provider / model per profile, and every archive with a captain block reports
+`match` / `differ` / `undeclared` / `unknown` per field. When the deployment cannot be read the
+state is `unknown`, never "passed".
+
+The **apply** action is the one write the panel offers here: it switches the chosen session to the
+declared model and queues a prompt that calls `agent_teams_create`, `agent_teams_add_member` per
+member and finally `roster_verify`. Creating the team stays with the runtime.
+
 ## Sidebar panel
 
 The client plugin adds an **Agent Roster** entry to the left sidebar: one row in the `sidebar.panellist` slot plus the matching key in the `main` slot. Clicking the row opens a full-width page with three tabs — the panel is not only a viewer:
@@ -205,6 +218,7 @@ repository's `index/registry.json`, and anyone who subscribes can see them in th
 | `/plugins/dsh-agent-roster/library` | GET | panel snapshot: libraries, rosters, teams, hints, counts, remote sources |
 | `/plugins/dsh-agent-roster/document` | GET | one roster's raw text plus its parsed form (editor) |
 | `/plugins/dsh-agent-roster/rosters` | POST | create / update / delete / import / export one roster |
+| `/plugins/dsh-agent-roster/apply` | POST | apply an archive's captain to an existing or new session and queue the team-building prompt |
 | `/plugins/dsh-agent-roster/collection` | GET | fetch one collection's rosters read-only (nothing is written) |
 | `/plugins/dsh-agent-roster/install` | POST | write one collection into the local library (idempotent, no overwrite by default) |
 | `/plugins/dsh-agent-roster/locale` | GET | `en` / `zh` dictionary for the panel |
@@ -245,7 +259,7 @@ An empty library is not an error. A missing one is reported as info, not error. 
 
 ```bash
 npm install
-npm test          # node --test, 163 cases
+npm test          # node --test, 191 cases
 npm run smoke     # registers the tools against a real DSH bundle, asserts lossless output
 node scripts/check-locale.mjs   # static t() keys must exist in both dictionaries
 ```
@@ -269,7 +283,7 @@ test/             unit tests
 
 Verified on this machine:
 
-- `npm test` — 163/163 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, all routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment, remote registry and one-click install).
+- `npm test` — 191/191 passing (format, parse, validate, registry, paths, bridge, verify, lossless JSON, write plan/apply, all routes, panel snapshot and hints, dictionary consistency, tool contracts, client loader contract, library snapshot, config view, package manifest, declared fields and captain block, schema/constant alignment, remote registry and one-click install).
 - `npm run smoke` — `apply()` registers all five tools through a real `defineTool` from a DSH bundle; `roster_list` / `roster_show` / `roster_create` / `roster_verify` execute, every output survives `lossless` checks, `path` overrides are honored, effect disposal runs cleanly. The same command then loads `client.js` against a stubbed module table and asserts the three slot registrations, style injection and effect disposal.
 - CLI: `validate --dir examples` returns exit 0 over both example libraries.
 - Installed into a real profile with the plugin manager (`plugin_manager install_bundle` against this directory → `link:` dependency + bundle entry); the profile re-reads the linked files on restart.

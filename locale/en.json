@@ -241,5 +241,37 @@
     "loading": "Loading rosters…",
     "repo": "Repository",
     "conflictHint": "Local versions differ; nothing was overwritten."
+  },
+  "captain": {
+    "title": "Captain",
+    "hint": "The captain is the session that creates the team — it has no member row. Its model comes from the deployment (agent-default-model) and its persona from the agent preset, so a roster can only declare them and compare.",
+    "declared": "Declared",
+    "effortDefault": "default",
+    "noPersona": "no persona prefix declared",
+    "hasPersona": "persona prefix declared",
+    "noChecks": "No deployment config read yet — nothing to compare.",
+    "applyTo": "Apply to a session",
+    "modeExisting": "Existing session",
+    "modeNew": "New session",
+    "noSessions": "No sessions available",
+    "cwdPlaceholder": "Working directory (optional)",
+    "apply": "Apply & create team",
+    "applying": "Applying…",
+    "applyFailed": "Apply failed",
+    "applyFailedCode": "Failed: {code}",
+    "applied": "Applied — the team prompt is queued in that session",
+    "appliedTo": "Queued in {session}",
+    "check": {
+      "provider": "Provider",
+      "model": "Model",
+      "reasoningEffort": "Reasoning effort",
+      "personaPrefix": "Persona prefix"
+    },
+    "status": {
+      "match": "matches deployment ({declared})",
+      "differ": "declared {declared}, deployment has {actual}",
+      "undeclared": "not declared, runtime uses {actual}",
+      "unknown": "deployment unreadable"
+    }
   }
 }
